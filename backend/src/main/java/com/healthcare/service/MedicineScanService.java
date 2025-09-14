@@ -46,7 +46,7 @@ public class MedicineScanService {
         ITesseract tesseract = new Tesseract();
         // Set tessdata path - Tesseract will look for language data files here
         // Note: tessdata files need to be downloaded separately and placed in this directory
-        String tessdataPath = System.getProperty("user.dir") + "\\backend\\tessdata";
+        String tessdataPath = System.getProperty("user.dir") + "\\tessdata";
         System.setProperty("TESSDATA_PREFIX", tessdataPath);
         tesseract.setDatapath(tessdataPath);
         tesseract.setLanguage("eng"); // English language
