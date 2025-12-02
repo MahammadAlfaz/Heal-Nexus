@@ -6,6 +6,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +23,8 @@ import reactor.core.publisher.Mono;
 @Service
 public class MedicineScanService {
 
+    private static final Logger logger = LoggerFactory.getLogger(MedicineScanService.class);
+
     private final MedicineScanRepository medicineScanRepository;
     private final AiService aiService;
 
@@ -32,50 +36,50 @@ public class MedicineScanService {
         this.aiService = aiService;
     }
 
-    public MedicineScan processMedicineScan(MultipartFile file) throws IOException, TesseractException {
-        // Save image to file system
-        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-        Path storageDir = Paths.get(System.getProperty("user.dir"), imageStoragePath);
-        if (!Files.exists(storageDir)) {
+    public Mono<MedicineScan> processMedicineScan(MultipartFile file) {
+        return Mono.fromCallable(() -> {
+            // Save image to file system
+            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            Path storageDir = Paths.get(System.getProperty("user.dir"), imageStoragePath);
             Files.createDirectories(storageDir);
-        }
-        Path filePath = storageDir.resolve(fileName);
-        Files.write(filePath, file.getBytes());
+            Path filePath = storageDir.resolve(fileName);
+            Files.write(filePath, file.getBytes());
+            return filePath;
+        }).flatMap(filePath -> {
+            // Perform OCR using Tesseract
+            return Mono.fromCallable(() -> {
+                ITesseract tesseract = new Tesseract();
+                String tessdataPath = System.getProperty("user.dir") + "\\tessdata";
+                System.setProperty("TESSDATA_PREFIX", tessdataPath);
+                tesseract.setDatapath(tessdataPath);
+                tesseract.setLanguage("eng");
+                return tesseract.doOCR(filePath.toFile());
+            }).flatMap(extractedText -> {
+                // Use Gemini AI to parse extracted text
+                String prompt = "Parse the following medicine information extracted from an image into a detailed and comprehensive structured JSON format. " +
+                               "Return ONLY valid JSON with these fields: brandName, generic, category, uses (array), dosage, " +
+                               "foodInstructions, sideEffects (object with common and serious arrays), warnings (array), isCritical (boolean). " +
+                               "Provide as much detail as possible in each field. If information is not available, use reasonable defaults or empty arrays. " +
+                               "Extracted text:\n" + extractedText;
 
-        // Perform OCR using Tesseract
-        ITesseract tesseract = new Tesseract();
-        // Set tessdata path - Tesseract will look for language data files here
-        // Note: tessdata files need to be downloaded separately and placed in this directory
-        String tessdataPath = System.getProperty("user.dir") + "\\tessdata";
-        System.setProperty("TESSDATA_PREFIX", tessdataPath);
-        tesseract.setDatapath(tessdataPath);
-        tesseract.setLanguage("eng"); // English language
-        String extractedText = tesseract.doOCR(filePath.toFile());
-
-        // Use Gemini AI to parse extracted text into structured data
-        String prompt = "Parse the following medicine information extracted from an image into a structured JSON format. " +
-                       "Return ONLY valid JSON with these fields: brandName, generic, category, uses (array), dosage, " +
-                       "foodInstructions, sideEffects (object with common and serious arrays), warnings (array), isCritical (boolean). " +
-                       "If information is not available, use reasonable defaults or empty arrays. " +
-                       "Extracted text:\n" + extractedText;
-
-        try {
-            Mono<String> structuredDataMono = aiService.queryAI(prompt, "English");
-            String structuredData = structuredDataMono.block(); // Blocking for simplicity
-
-            // Clean up the response - remove markdown formatting if present
-            if (structuredData != null) {
-                structuredData = structuredData.replaceAll("```json\\s*", "").replaceAll("\\s*```", "").trim();
-            }
-
-            // Save MedicineScan entity
-            MedicineScan medicineScan = new MedicineScan(filePath.toString(), extractedText, structuredData);
-            return medicineScanRepository.save(medicineScan);
-        } catch (Exception e) {
-            // If AI fails, save with extracted text only
-            String fallbackData = "{\"error\": \"Failed to parse medicine data\", \"extractedText\": \"" + extractedText.replace("\"", "\\\"") + "\"}";
-            MedicineScan medicineScan = new MedicineScan(filePath.toString(), extractedText, fallbackData);
-            return medicineScanRepository.save(medicineScan);
-        }
+                return aiService.queryAI(prompt, "English")
+                    .map(structuredData -> {
+                        String cleanedData = structuredData.replaceAll("```json\\s*", "").replaceAll("\\s*```", "").trim();
+                        MedicineScan medicineScan = new MedicineScan(filePath.toString(), extractedText, cleanedData);
+                        return medicineScanRepository.save(medicineScan);
+                    });
+            }).onErrorResume(TesseractException.class, e -> {
+                logger.error("Tesseract OCR failed: {}", e.getMessage());
+                String fallbackData = "{\"error\": \"OCR failed to extract text from image.\"}";
+                MedicineScan medicineScan = new MedicineScan(filePath.toString(), "OCR_FAILED", fallbackData);
+                return Mono.just(medicineScanRepository.save(medicineScan));
+            });
+        }).onErrorResume(IOException.class, e -> {
+            logger.error("File I/O error during medicine scan: {}", e.getMessage());
+            String fallbackData = "{\"error\": \"Failed to save or process the uploaded image file.\"}";
+            MedicineScan medicineScan = new MedicineScan("IO_ERROR", "IO_ERROR", fallbackData);
+            // We don't save this one as there's no file path. We just signal the error.
+            return Mono.just(medicineScan);
+        });
     }
 }

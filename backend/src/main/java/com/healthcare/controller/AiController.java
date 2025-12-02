@@ -1,7 +1,6 @@
 package com.healthcare.controller;
 
 import com.healthcare.service.AiService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -13,8 +12,11 @@ import java.util.Map;
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"})
 public class AiController {
 
-    @Autowired
-    private AiService aiService;
+    private final AiService aiService;
+
+    public AiController(AiService aiService) {
+        this.aiService = aiService;
+    }
 
     @PostMapping("/query")
     public Mono<ResponseEntity<Map<String, String>>> queryAI(@RequestBody Map<String, String> request) {

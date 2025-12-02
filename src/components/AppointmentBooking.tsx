@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -6,9 +6,9 @@ import { Badge } from './ui/badge';
 import { Calendar } from './ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
-import { 
-  ArrowLeft, 
-  Search, 
+import {
+  ArrowLeft,
+  Search,
   Calendar as CalendarIcon,
   Clock,
   Video,
@@ -21,74 +21,75 @@ import {
   MessageSquare,
   Bell
 } from 'lucide-react';
+import { fetchDoctors } from '../utils/api';
 
 interface AppointmentBookingProps {
   onNavigate: (page: string) => void;
   userType: 'patient' | 'doctor' | 'admin' | null;
 }
 
+interface Doctor {
+  id: string;
+  fullName: string;
+  specialization: string;
+  medicalDegree: string;
+  yearsOfExperience: string;
+  rating: number;
+  reviewCount: number;
+  hospitalAffiliation: string;
+  consultationFee: number;
+  nextAvailable: string;
+  photoUrl: string;
+  verified?: boolean;
+  onlineConsultation?: boolean;
+  languages?: string[];
+  location?: string;
+}
+
 export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingProps) {
   const [step, setStep] = useState<'search' | 'doctor' | 'book' | 'confirm'>('search');
-  const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [consultationType, setConsultationType] = useState<'online' | 'inperson'>('inperson');
   const [searchSpecialty, setSearchSpecialty] = useState('all');
   const [searchLocation, setSearchLocation] = useState('');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const doctors = [
-    {
-      id: 1,
-      name: 'Dr. Rajesh Kumar',
-      specialty: 'Cardiologist',
-      qualification: 'MD, DM Cardiology',
-      experience: 15,
-      rating: 4.8,
-      reviews: 342,
-      hospital: 'Apollo Hospitals',
-      location: 'Bangalore',
-      consultationFee: 800,
-      nextAvailable: 'Today 4:00 PM',
-      languages: ['English', 'Hindi', 'Kannada'],
-      image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop&crop=face',
-      verified: true,
-      onlineConsultation: true
-    },
-    {
-      id: 2,
-      name: 'Dr. Priya Sharma',
-      specialty: 'Neurologist',
-      qualification: 'MD, DM Neurology',
-      experience: 12,
-      rating: 4.9,
-      reviews: 298,
-      hospital: 'Manipal Hospital',
-      location: 'Bangalore',
-      consultationFee: 1000,
-      nextAvailable: 'Tomorrow 10:30 AM',
-      languages: ['English', 'Hindi'],
-      image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face',
-      verified: true,
-      onlineConsultation: true
-    },
-    {
-      id: 3,
-      name: 'Dr. Amit Patel',
-      specialty: 'Orthopedist',
-      qualification: 'MS Orthopedics',
-      experience: 18,
-      rating: 4.7,
-      reviews: 451,
-      hospital: 'Fortis Hospital',
-      location: 'Bangalore',
-      consultationFee: 700,
-      nextAvailable: 'Tomorrow 2:00 PM',
-      languages: ['English', 'Gujarati', 'Hindi'],
-      image: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop&crop=face',
-      verified: true,
-      onlineConsultation: false
+  useEffect(() => {
+    async function loadDoctors() {
+      setLoading(true);
+      setError('');
+      try {
+        const doctorsData = await fetchDoctors();
+        const mappedDoctors = doctorsData.map((doc: any) => ({
+          id: doc.id,
+          fullName: doc.fullName,
+          specialization: doc.specialization,
+          medicalDegree: doc.medicalDegree,
+          yearsOfExperience: doc.yearsOfExperience,
+          rating: doc.rating || 4.5,
+          reviewCount: doc.reviewCount || 0,
+          hospitalAffiliation: doc.hospitalAffiliation,
+          consultationFee: doc.consultationFee || 800,
+          nextAvailable: doc.nextAvailable || 'Available Today',
+          photoUrl: doc.photoUrl,
+          verified: true,
+          onlineConsultation: doc.onlineConsultation,
+          languages: ['English', 'Hindi'],
+          location: doc.city || '',
+        }));
+        setDoctors(mappedDoctors);
+      } catch (err) {
+        setError('Failed to load doctors');
+      } finally {
+        setLoading(false);
+      }
     }
-  ];
+    loadDoctors();
+  }, []);
 
   const timeSlots = [
     '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
@@ -102,16 +103,41 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
   ];
 
   const filteredDoctors = doctors.filter(doctor => {
-    const matchesSpecialty = !searchSpecialty || searchSpecialty === 'all' || 
-                           doctor.specialty.toLowerCase().includes(searchSpecialty.toLowerCase());
-    const matchesLocation = !searchLocation || 
-                          doctor.location.toLowerCase().includes(searchLocation.toLowerCase());
+    const matchesSpecialty = !searchSpecialty || searchSpecialty === 'all' ||
+                           doctor.specialization.toLowerCase().includes(searchSpecialty.toLowerCase());
+    const matchesLocation = !searchLocation ||
+                          (doctor.location && doctor.location.toLowerCase().includes(searchLocation.toLowerCase()));
     return matchesSpecialty && matchesLocation;
   });
 
-  const handleDoctorSelect = (doctor: any) => {
+  // Fix display for missing fields with fallback values
+  const displayDoctors = filteredDoctors.map(doc => ({
+    ...doc,
+    fullName: doc.fullName || 'Unknown Doctor',
+    specialization: doc.specialization || 'General Medicine',
+    medicalDegree: doc.medicalDegree || '',
+    yearsOfExperience: doc.yearsOfExperience || 'N/A',
+    rating: doc.rating || 0,
+    reviewCount: doc.reviewCount || 0,
+    hospitalAffiliation: doc.hospitalAffiliation || 'Unknown Hospital',
+    consultationFee: doc.consultationFee || 800,
+    nextAvailable: doc.nextAvailable || 'Available Today',
+    photoUrl: doc.photoUrl || `https://avatar.vercel.sh/${doc.fullName || 'doctor'}.png`,
+    languages: doc.languages || ['English'],
+    location: doc.location || '',
+    verified: doc.verified !== undefined ? doc.verified : true,
+    onlineConsultation: doc.onlineConsultation !== undefined ? doc.onlineConsultation : true,
+  }));
+
+  const handleDoctorSelect = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
     setStep('doctor');
+  };
+
+  // Fix implicit any type for date parameter
+  const disabledDate = (date: Date) => {
+    const today = new Date();
+    return date < today;
   };
 
   const handleBookAppointment = () => {
@@ -140,14 +166,14 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                 <div className="bg-green-50 p-6 rounded-xl space-y-4">
                   <div className="flex items-center gap-4">
                     <img
-                      src={selectedDoctor?.image}
-                      alt={selectedDoctor?.name}
+                      src={selectedDoctor?.photoUrl || `https://avatar.vercel.sh/${selectedDoctor?.fullName}.png`}
+                      alt={selectedDoctor?.fullName}
                       className="w-16 h-16 rounded-full object-cover"
                     />
                     <div>
-                      <h3 className="font-medium text-green-800">{selectedDoctor?.name}</h3>
-                      <p className="text-sm text-green-600">{selectedDoctor?.specialty}</p>
-                      <p className="text-sm text-green-600">{selectedDoctor?.hospital}</p>
+                      <h3 className="font-medium text-green-800">{selectedDoctor?.fullName}</h3>
+                      <p className="text-sm text-green-600">{selectedDoctor?.specialization}</p>
+                      <p className="text-sm text-green-600">{selectedDoctor?.hospitalAffiliation}</p>
                     </div>
                   </div>
                   
@@ -236,7 +262,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
 
           <div className="space-y-2">
             <h1 className="text-3xl text-gray-900">Book Appointment</h1>
-            <p className="text-gray-600">Schedule your consultation with {selectedDoctor.name}</p>
+            <p className="text-gray-600">Schedule your consultation with {selectedDoctor.fullName}</p>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-8">
@@ -375,8 +401,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                       </div>
 
                       <div className="text-sm text-gray-600">
-                        {selectedDoctor.experience} years experience
-                      </div>
+                        {selectedDoctor.yearsOfExperience} years experience
                     </div>
                   </div>
                 </CardContent>
@@ -478,7 +503,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                           <span className="text-gray-600">({selectedDoctor.reviews} reviews)</span>
                         </div>
                         <div className="text-gray-600">
-                          {selectedDoctor.experience} years experience
+                          {selectedDoctor.yearsOfExperience} years experience
                         </div>
                       </div>
 
@@ -677,7 +702,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                           <span className="text-sm font-medium">{doctor.rating}</span>
                           <span className="text-sm text-gray-600">({doctor.reviews})</span>
                         </div>
-                        <span className="text-sm text-gray-600">• {doctor.experience} years exp</span>
+                        <span className="text-sm text-gray-600">• {doctor.yearsOfExperience} years exp</span>
                       </div>
 
                       <div className="flex items-center justify-between">

@@ -167,7 +167,7 @@ export function CostEstimator({ onNavigate, userType }: CostEstimatorProps) {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Search Form */}
           <div className="space-y-6">
             <Card className="border-0 shadow-lg rounded-xl">
@@ -308,7 +308,7 @@ export function CostEstimator({ onNavigate, userType }: CostEstimatorProps) {
                     )}
                   </CardHeader>
                   <CardContent>
-                    <div className="grid md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-blue-50 rounded-xl">
                         <div className="text-2xl font-semibold text-blue-700">₹{results[0]?.baseCost.toLocaleString()}</div>
                         <div className="text-sm text-blue-600">Average Cost</div>
@@ -346,7 +346,7 @@ export function CostEstimator({ onNavigate, userType }: CostEstimatorProps) {
                               : 'border-gray-200 bg-gray-50'
                           }`}
                         >
-                          <div className="flex items-start justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
                                 <h3 className="font-medium text-gray-900">{hospital.hospitalName}</h3>
@@ -375,28 +375,28 @@ export function CostEstimator({ onNavigate, userType }: CostEstimatorProps) {
                                 <div>{hospital.distance}</div>
                               </div>
 
-                              <div className="grid grid-cols-4 gap-4">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div>
                                   <div className="text-lg font-semibold text-gray-900">
                                     ₹{hospital.baseCost.toLocaleString()}
                                   </div>
                                   <div className="text-xs text-gray-600">Total Cost</div>
                                 </div>
-                                
+
                                 <div>
                                   <div className="text-lg font-semibold text-green-700">
                                     ₹{hospital.coveredAmount.toLocaleString()}
                                   </div>
                                   <div className="text-xs text-green-600">Covered</div>
                                 </div>
-                                
+
                                 <div>
                                   <div className="text-lg font-semibold text-orange-700">
                                     ₹{hospital.patientPayment.toLocaleString()}
                                   </div>
                                   <div className="text-xs text-orange-600">You Pay</div>
                                 </div>
-                                
+
                                 <div>
                                   <div className="text-lg font-semibold text-purple-700">
                                     ₹{hospital.savings.toLocaleString()}

@@ -14,7 +14,9 @@ import {
   Clock,
   Shield,
   Users,
-  FileText
+  FileText,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 interface DoctorVerificationProps {
@@ -25,9 +27,11 @@ export function DoctorVerification({ onNavigate }: DoctorVerificationProps) {
   const { doctors, verifyDoctor } = useAppData();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('pending');
+  const [loadingDoctorId, setLoadingDoctorId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const filteredDoctors = doctors.filter(doctor => {
-    const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = doctor.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (doctor.licenseNumber && doctor.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -40,6 +44,18 @@ export function DoctorVerification({ onNavigate }: DoctorVerificationProps) {
     pending: doctors.filter(d => d.status === 'pending').length,
     approved: doctors.filter(d => d.status === 'approved').length,
     rejected: doctors.filter(d => d.status === 'rejected').length,
+  };
+
+  const handleVerify = async (doctorEmail: string, status: 'approved' | 'rejected') => {
+    setLoadingDoctorId(doctorEmail);
+    setError(null);
+    try {
+      await verifyDoctor(doctorEmail, status);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to ${status} doctor.`);
+    } finally {
+      setLoadingDoctorId(null);
+    }
   };
 
   return (
@@ -126,6 +142,12 @@ export function DoctorVerification({ onNavigate }: DoctorVerificationProps) {
           </div>
         </CardHeader>
         <CardContent>
+          {error && (
+            <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
               <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
@@ -148,7 +170,7 @@ export function DoctorVerification({ onNavigate }: DoctorVerificationProps) {
                   {filteredDoctors.map((doctor) => (
                     <TableRow key={doctor.id}>
                       <TableCell>
-                        <div className="font-medium">{doctor.name}</div>
+                        <div className="font-medium">{doctor.fullName}</div>
                         <div className="text-sm text-gray-500">{doctor.email}</div>
                       </TableCell>
                       <TableCell>{doctor.specialization}</TableCell>
@@ -173,20 +195,26 @@ export function DoctorVerification({ onNavigate }: DoctorVerificationProps) {
                         {doctor.status === 'pending' ? (
                           <div className="flex gap-2">
                             <Button
+                              disabled={loadingDoctorId === doctor.email}
                               size="sm"
-                              onClick={() => verifyDoctor(doctor.id, 'approved')}
+                              onClick={() => handleVerify(doctor.email, 'approved')}
                               className="bg-black hover:bg-gray-800 text-white rounded-lg"
                             >
-                              <Check className="w-4 h-4 mr-1" />
-                              Approve
+                              {loadingDoctorId === doctor.email ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4 mr-1" />
+                              )}
+                              {loadingDoctorId === doctor.email ? 'Approving...' : 'Approve'}
                             </Button>
                             <Button
+                              disabled={loadingDoctorId === doctor.email}
                               size="sm"
                               variant="destructive"
-                              onClick={() => verifyDoctor(doctor.id, 'rejected')}
+                              onClick={() => handleVerify(doctor.email, 'rejected')}
                               className="rounded-lg"
                             >
-                              <X className="w-4 h-4 mr-1" />
+                              {loadingDoctorId !== doctor.email && <X className="w-4 h-4 mr-1" />}
                               Reject
                             </Button>
                           </div>

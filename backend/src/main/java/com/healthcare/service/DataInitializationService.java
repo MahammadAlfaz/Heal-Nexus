@@ -4,10 +4,15 @@ import java.time.LocalDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.healthcare.model.Doctor;
 import com.healthcare.model.Hospital;
+import com.healthcare.model.User;
+import com.healthcare.repository.DoctorRepository;
 import com.healthcare.repository.HospitalRepository;
+import com.healthcare.repository.UserRepository;
 
 @Service
 public class DataInitializationService implements CommandLineRunner {
@@ -15,13 +20,31 @@ public class DataInitializationService implements CommandLineRunner {
     @Autowired
     private HospitalRepository hospitalRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Autowired
+    private AppointmentService appointmentService;
+
     @Override
     public void run(String... args) throws Exception {
         // Always initialize hospital data for now
         initializeHospitalData();
+        initializeUserData();
+        initializeDoctorData();
+        initializeAppointmentData();
     }
 
     private void initializeHospitalData() {
+        if (hospitalRepository.count() > 0) {
+            System.out.println("Hospital data already exists. Skipping initialization.");
+            return;
+        }
+        System.out.println("Initializing hospital data...");
+
         LocalDateTime now = LocalDateTime.now();
 
         // Apollo Hospitals Chennai
@@ -171,6 +194,137 @@ public class DataInitializationService implements CommandLineRunner {
         hospitalRepository.save(hospital4);
         hospitalRepository.save(hospital5);
 
-        System.out.println("Hospital data initialized successfully!");
+        // System.out.println("Hospital data initialized successfully!");
+    }
+
+    private void initializeUserData() {
+        // Check if data already exists to prevent re-initialization
+        if (userRepository.count() > 0) {
+            System.out.println("User data already exists. Skipping initialization.");
+            return;
+        }
+        System.out.println("Initializing user data...");
+
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+        // Admin user
+        User admin = new User();
+        admin.setEmail("admin@healthcare.com");
+        admin.setPasswordHash(encoder.encode("admin123"));
+        admin.setUserType("admin");
+        admin.setFullName("Admin User");
+        admin.setPhone("+91-9999999999");
+        admin.setCreatedAt(LocalDateTime.now());
+        userRepository.save(admin);
+
+        // Patient user
+        User patient = new User();
+        patient.setEmail("patient@healthcare.com");
+        patient.setPasswordHash(encoder.encode("patient123"));
+        patient.setUserType("patient");
+        patient.setFullName("Jane Doe");
+        patient.setPhone("+91-7777777777");
+        patient.setCreatedAt(LocalDateTime.now());
+        userRepository.save(patient);
+
+        // Add developer's test account for convenience
+        User devPatient = new User();
+        devPatient.setEmail("alfazkota.786@gmail.com");
+        devPatient.setPasswordHash(encoder.encode("password123"));
+        devPatient.setUserType("patient");
+        devPatient.setFullName("Alfaz Kota");
+        devPatient.setPhone("+91-1234567890");
+        devPatient.setCreatedAt(LocalDateTime.now());
+        userRepository.save(devPatient);
+
+      // Doctor users
+        User doctorUser1 = new User();
+        doctorUser1.setEmail("doctor@healthcare.com");
+        doctorUser1.setPasswordHash(encoder.encode("doctor123"));
+        doctorUser1.setUserType("doctor");
+        doctorUser1.setFullName("Dr. Rajesh Kumar");
+        doctorUser1.setPhone("+91-8888888888");
+        doctorUser1.setCreatedAt(LocalDateTime.now());
+        userRepository.save(doctorUser1);
+
+        User doctorUser2 = new User();
+        doctorUser2.setEmail("dr.priya.sharma@healthcare.com");
+        doctorUser2.setPasswordHash(encoder.encode("doctor123"));
+        doctorUser2.setUserType("doctor");
+        doctorUser2.setFullName("Dr. Priya Sharma");
+        doctorUser2.setPhone("+91-9876543210");
+        doctorUser2.setCreatedAt(LocalDateTime.now());
+        userRepository.save(doctorUser2);
+
+        System.out.println("User data initialized successfully!");
+    }
+
+    private void ensureDoctorExists(String id, String email, String fullName, String phone, String licenseNumber,
+                                   String specialization, String medicalDegree, String yearsOfExperience,
+                                   String hospitalAffiliation, String photoUrl) {
+        if (doctorRepository.findByEmail(email).isEmpty()) {
+            Doctor doctor = new Doctor();
+            if (id != null) {
+                doctor.setId(id);
+            }
+            doctor.setEmail(email);
+            doctor.setFullName(fullName);
+            doctor.setPhone(phone);
+            doctor.setLicenseNumber(licenseNumber);
+            doctor.setSpecialization(specialization);
+            doctor.setMedicalDegree(medicalDegree);
+            doctor.setYearsOfExperience(yearsOfExperience);
+            doctor.setHospitalAffiliation(hospitalAffiliation);
+            doctor.setPhotoUrl(photoUrl);
+            doctor.setApproved(true); // Approve test doctors for development
+            doctor.setCreatedAt(LocalDateTime.now());
+            doctorRepository.save(doctor);
+            System.out.println("Created doctor: " + fullName);
+        } else {
+            System.out.println("Doctor already exists: " + fullName);
+        }
+    }
+
+    private void initializeDoctorData() {
+        System.out.println("Initializing doctor data...");
+
+        // Always ensure specific doctors exist
+        ensureDoctorExists("68d575efb5c5603790e19938", "doctor@healthcare.com", "Dr. Rajesh Kumar", "+91-8888888888", "LIC123456", "Cardiologist", "MD, DM Cardiology", "15", "Apollo Hospitals", "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.priya.sharma@healthcare.com", "Dr. Priya Sharma", "+91-9876543210", "LIC789012", "Neurologist", "MD, DM Neurology", "12", "Manipal Hospital", "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.amit.patel@healthcare.com", "Dr. Amit Patel", "+91-8765432109", "LIC345678", "Orthopedist", "MS Orthopedics", "18", "Fortis Hospital", "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.emily.davis@healthcare.com", "Dr. Emily Davis", "+91-7654321098", "LIC901234", "Dermatology", "MD", "10", "Manipal Hospitals", "https://images.unsplash.com/photo-1594824804732-ca8db723f8fa?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.david.wilson@healthcare.com", "Dr. David Wilson", "+91-6543210987", "LIC567890", "Pediatrics", "MBBS, DCH", "14", "AIIMS Delhi", "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.lisa.garcia@healthcare.com", "Dr. Lisa Garcia", "+91-5432109876", "LIC112233", "Gynecology", "MD, OB/GYN", "16", "Apollo Hospitals", "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.robert.lee@healthcare.com", "Dr. Robert Lee", "+91-4321098765", "LIC445566", "Ophthalmology", "MS, Ophthalmology", "13", "Max Super Speciality Hospital", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face");
+        ensureDoctorExists(null, "dr.maria.rodriguez@healthcare.com", "Dr. Maria Rodriguez", "+91-3210987654", "LIC778899", "Psychiatry", "MD, Psychiatry", "11", "Fortis Hospital", "https://images.unsplash.com/photo-1594824804732-ca8db723f8fa?w=150&h=150&fit=crop&crop=face");
+
+        System.out.println("Doctor data initialized successfully!");
+    }
+
+    private void initializeAppointmentData() {
+        System.out.println("Attempting to initialize appointment data...");
+
+        // Check if appointments already exist to prevent re-creation.
+        if (appointmentService.count() > 0) {
+            System.out.println("Appointment data already exists. Skipping initialization.");
+            return;
+        }
+
+        try {
+            User patient = userRepository.findByEmailAndUserType("patient@healthcare.com", "patient")
+                .orElseThrow(() -> new RuntimeException("Default patient 'patient@healthcare.com' not found. Cannot create appointments."));
+            Doctor doctor1 = doctorRepository.findByEmail("doctor@healthcare.com")
+                .orElseThrow(() -> new RuntimeException("Default doctor 'doctor@healthcare.com' not found."));
+            Doctor doctor2 = doctorRepository.findByEmail("dr.priya.sharma@healthcare.com")
+                .orElseThrow(() -> new RuntimeException("Default doctor 'dr.priya.sharma@healthcare.com' not found."));
+
+            System.out.println("Found necessary users. Creating sample appointments...");
+            appointmentService.createAppointment(patient, doctor1, LocalDateTime.now().plusDays(1).withHour(10).withMinute(0), "Confirmed", "Follow-up checkup");
+            appointmentService.createAppointment(patient, doctor2, LocalDateTime.now().plusDays(3).withHour(14).withMinute(30), "Confirmed", "Neurology consultation");
+
+            System.out.println("Appointment data initialized successfully!");
+        } catch (RuntimeException e) {
+            System.err.println("Could not initialize appointment data. Required users might be missing. Error: " + e.getMessage());
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.healthcare.service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,8 +68,8 @@ public class UserService {
     }
 
     public User registerUser(SignupRequest signupRequest) {
-        if (userRepository.findByEmail(signupRequest.getEmail()).isPresent()) {
-            throw new RuntimeException("User already exists");
+        if (userRepository.findByEmailAndUserType(signupRequest.getEmail(), signupRequest.getUserType()).isPresent()) {
+            throw new RuntimeException("An account with this email already exists for this user type.");
         }
         String hashedPassword = passwordEncoder.encode(signupRequest.getPassword());
         User user = new User();
@@ -91,17 +94,26 @@ public class UserService {
         user.setPreferredHospital(signupRequest.getPreferredHospital());
         user.setInsuranceProvider(signupRequest.getInsuranceProvider());
         user.setInsurancePolicyNumber(signupRequest.getInsurancePolicyNumber());
-        user.setLicenseNumber(signupRequest.getLicenseNumber());
-        user.setSpecialization(signupRequest.getSpecialization());
-        user.setMedicalDegree(signupRequest.getMedicalDegree());
-        user.setYearsOfExperience(signupRequest.getYearsOfExperience());
-        user.setHospitalAffiliation(signupRequest.getHospitalAffiliation());
-        user.setAllowEmergencyServices(signupRequest.isAllowEmergencyServices());
-        user.setAllowAIAnalysis(signupRequest.isAllowAIAnalysis());
-        user.setAllowDataSharing(signupRequest.isAllowDataSharing());
-        user.setEnableLocationServices(signupRequest.isEnableLocationServices());
+
+        user.setAllowEmergencyServices(signupRequest.getAllowEmergencyServices());
+        user.setAllowAIAnalysis(signupRequest.getAllowAIAnalysis());
+        user.setAllowDataSharing(signupRequest.getAllowDataSharing());
+        user.setEnableLocationServices(signupRequest.getEnableLocationServices());
         user.setCreatedAt(java.time.LocalDateTime.now());
-        return userRepository.save(user);
+
+        User savedUser = userRepository.save(user);
+
+        // Create user-specific folder
+        try {
+            String folderName = savedUser.getFullName().replaceAll("[^a-zA-Z0-9]", "_");
+            String folderPath = "uploads/" + savedUser.getUserType() + "s/" + folderName;
+            Files.createDirectories(Paths.get(folderPath));
+        } catch (IOException e) {
+            // Log error but don't fail registration
+            System.err.println("Failed to create user folder: " + e.getMessage());
+        }
+
+        return savedUser;
     }
 
     public Optional<User> authenticateUser(String email, String password, String userType) {
@@ -165,4 +177,6 @@ public class UserService {
     public void deleteUsersByIds(List<String> ids) {
         userRepository.deleteAllById(ids);
     }
+
+
 }

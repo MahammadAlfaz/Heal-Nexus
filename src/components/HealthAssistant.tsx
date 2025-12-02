@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Alert, AlertDescription } from './ui/alert';
+import { BreadcrumbNavigation } from './BreadcrumbNavigation';
 import {
   ArrowLeft,
   Bot,
@@ -348,6 +349,7 @@ export function HealthAssistant({ onNavigate, userType }: HealthAssistantProps) 
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <BreadcrumbNavigation userType={userType} onNavigate={onNavigate} />
       <div className="max-w-6xl mx-auto p-2 sm:p-4 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

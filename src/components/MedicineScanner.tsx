@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+ import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 import { Alert, AlertDescription } from './ui/alert';
+import { BreadcrumbNavigation } from './BreadcrumbNavigation';
 import { 
   ArrowLeft, 
   Camera, 
@@ -42,6 +43,9 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [audioSpeed, setAudioSpeed] = useState(1);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentUtterance, setCurrentUtterance] = useState<SpeechSynthesisUtterance | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -111,16 +115,21 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
 
   const speakText = (text: string, section?: string) => {
     if (!isAudioEnabled || !('speechSynthesis' in window) || !text) return;
-    
+
     try {
-      // Stop any current speech
-      speechSynthesis.cancel();
-      
+      // Stop any current speech and reset state
+      if (speechSynthesis.speaking || speechSynthesis.paused) {
+        speechSynthesis.cancel();
+        setIsPlaying(false);
+        setIsPaused(false);
+        setCurrentUtterance(null);
+      }
+
       const lang = languageConfig[selectedLanguage as keyof typeof languageConfig] || languageConfig.english;
-      
+
       // Limit text length to prevent long audio
       const limitedText = text.length > 500 ? text.substring(0, 500) + '...' : text;
-      
+
       const utterance = new SpeechSynthesisUtterance(limitedText);
       utterance.lang = lang.code;
       utterance.rate = audioSpeed;
@@ -156,18 +165,36 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
         console.warn('No voices available at all.');
       }
 
+      // Set state and event handlers
+      utterance.onstart = () => {
+        setIsPlaying(true);
+        setIsPaused(false);
+        setCurrentUtterance(utterance);
+      };
+      utterance.onend = () => {
+        setIsPlaying(false);
+        setIsPaused(false);
+        setCurrentUtterance(null);
+      };
+      utterance.onpause = () => {
+        setIsPaused(true);
+      };
+      utterance.onresume = () => {
+        setIsPaused(false);
+      };
+
       // Add section-specific announcements
       if (section) {
         const announcement = getAudioAnnouncement(section);
         const announcementUtterance = new SpeechSynthesisUtterance(announcement);
         announcementUtterance.lang = lang.code;
         announcementUtterance.rate = audioSpeed;
-        speechSynthesis.speak(announcementUtterance);
 
-        // When the announcement finishes, speak the main text.
         announcementUtterance.onend = () => {
           speechSynthesis.speak(utterance);
         };
+
+        speechSynthesis.speak(announcementUtterance);
       } else {
         speechSynthesis.speak(utterance);
       }
@@ -190,19 +217,30 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
 
   const speakFullInformation = () => {
     if (!scanResult || scanResult.isUnknown || !isAudioEnabled) return;
-    
+
     try {
+      const dosageText = typeof scanResult.dosage === 'object' && scanResult.dosage !== null
+        ? Object.entries(scanResult.dosage).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join('. ')
+        : scanResult.dosage;
+
       const fullText = `
-        Medicine information for ${scanResult.brandName}. 
-        Generic name: ${scanResult.generic}. 
-        Category: ${scanResult.category}. 
+        Medicine information for ${scanResult.brandName}.
+        Generic name: ${scanResult.generic}.
+        Category: ${scanResult.category}.
         ${scanResult.isCritical ? 'This is a critical medicine requiring medical supervision.' : ''}
-        Uses: ${scanResult.uses.join(', ')}. 
-        Dosage instructions: ${scanResult.dosage}. 
+        Uses: ${scanResult.uses.join(', ')}.
+        Dosage instructions: ${dosageText}.
         Food instructions: ${scanResult.foodInstructions}.
       `;
-      
-      // Keep the text shorter for full information to prevent timeouts
+
+      // Stop any current speech before starting full info
+      if (speechSynthesis.speaking || speechSynthesis.paused) {
+        speechSynthesis.cancel();
+        setIsPlaying(false);
+        setIsPaused(false);
+        setCurrentUtterance(null);
+      }
+
       speakText(fullText.trim());
     } catch (error) {
       console.error('Error in full information speech:', error);
@@ -220,7 +258,8 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50">
+      <BreadcrumbNavigation userType={userType} onNavigate={onNavigate} />
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -467,16 +506,24 @@ export function MedicineScanner({ onNavigate, userType }: MedicineScannerProps) 
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => speakText(scanResult.dosage, 'dosage')}
+                                  onClick={() => speakText(typeof scanResult.dosage === 'object' ? Object.values(scanResult.dosage).join('. ') : scanResult.dosage, 'dosage')}
                                   className="p-1 h-6 w-6 rounded"
                                 >
                                   <Volume2 className="w-3 h-3" />
                                 </Button>
                               )}
                             </h3>
-                            <p className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">
-                              {scanResult.dosage}
-                            </p>
+                            <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">
+                              {typeof scanResult.dosage === 'object' && scanResult.dosage !== null ? (
+                                Object.entries(scanResult.dosage).map(([key, value]) => (
+                                  <div key={key}>
+                                    <strong>{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</strong> {String(value)}
+                                  </div>
+                                ))
+                              ) : (
+                                <p>{scanResult.dosage}</p>
+                              )}
+                            </div>
                           </div>
 
                           <div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -35,6 +35,24 @@ export function PickupService({ onNavigate, userType }: PickupServiceProps) {
   const [pickupAddress, setPickupAddress] = useState('');
   const [hospitalAddress, setHospitalAddress] = useState('');
 
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (step === 'confirm') { // This is now the tracking step
+      navigator.geolocation.getCurrentPosition(position => {
+        const uLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(uLocation);
+        setDriverLocation({
+          lat: uLocation.lat + 0.015,
+          lng: uLocation.lng - 0.01,
+        });
+      });
+    }
+  }, [step]);
   const services = [
     {
       id: 'elderly-assistance',
@@ -121,6 +139,15 @@ export function PickupService({ onNavigate, userType }: PickupServiceProps) {
     }
   ];
 
+  const mockDriver = {
+    name: 'Ravi Singh',
+    phone: '+91 91234 56789',
+    vehicle: 'Maruti Swift - DL 03 CA 4321',
+    eta: '8 mins',
+    rating: 4.8,
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
+  };
+
   const handleServiceSelect = (serviceId: string) => {
     setSelectedService(serviceId);
     setStep('book');
@@ -130,100 +157,116 @@ export function PickupService({ onNavigate, userType }: PickupServiceProps) {
     setStep('confirm');
   };
 
-  const confirmBooking = () => {
-    alert('Pickup service booked successfully! Our team will call you within 30 minutes to confirm details.');
-    setStep('select');
-    setSelectedService('');
-  };
-
   if (step === 'confirm') {
     const service = services.find(s => s.id === selectedService);
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; // Read from environment
+    const mapSrc = userLocation && driverLocation
+      ? `https://www.google.com/maps/embed/v1/directions?key=${googleMapsApiKey}&origin=${driverLocation.lat},${driverLocation.lng}&destination=${userLocation.lat},${userLocation.lng}&mode=driving`
+      : '';
+
     return (
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="text-center space-y-6 mt-12">
-            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-12 h-12 text-white" />
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl text-gray-900">Pickup Service Confirmed</h1>
+            <p className="text-gray-600">Your healthcare companion is on the way.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card className="border-0 shadow-lg rounded-xl h-full">
+                <CardContent className="p-2 h-full">
+                  {!googleMapsApiKey ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg p-4">
+                      <div className="text-center p-8 bg-white rounded-lg shadow-inner max-w-md">
+                        <h2 className="text-xl font-bold text-red-600 mb-2">Map Configuration Needed</h2>
+                        <p className="text-gray-700">To display the tracking map, you need to provide a Google Maps API key in your environment file.</p>
+                        <p className="text-sm text-gray-500 mt-4">Create a <code className="bg-gray-200 p-1 rounded text-xs">.env.local</code> file in the project root and add <code className="bg-gray-200 p-1 rounded text-xs">VITE_GOOGLE_MAPS_API_KEY="YOUR_KEY"</code>.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      className="w-full h-full rounded-lg"
+                      style={{ border: 0, minHeight: '400px' }}
+                      loading="lazy"
+                      allowFullScreen
+                      src={mapSrc}
+                    ></iframe>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-            
-            <Card className="border-0 shadow-lg rounded-xl">
-              <CardHeader>
-                <CardTitle className="text-2xl text-green-700">Service Booked Successfully!</CardTitle>
-                <CardDescription>Your pickup service has been confirmed</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="bg-green-50 p-6 rounded-xl space-y-4">
-                  <h3 className="font-medium text-green-800">{service?.name}</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm text-green-700">
+
+            <div className="space-y-6">
+              <Card className="border-0 shadow-lg rounded-xl">
+                <CardHeader>
+                  <CardTitle>Companion Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <img src={mockDriver.image} alt={mockDriver.name} className="w-16 h-16 rounded-full object-cover" />
                     <div>
-                      <span className="font-medium">Date:</span> {selectedDate?.toDateString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Time:</span> {selectedTimeSlot}
-                    </div>
-                    <div>
-                      <span className="font-medium">Duration:</span> {service?.duration}
-                    </div>
-                    <div>
-                      <span className="font-medium">Cost:</span> ₹{service?.price}
+                      <h3 className="font-medium">{mockDriver.name}</h3>
+                      <div className="flex items-center gap-1 text-sm text-yellow-500">
+                        <Star className="w-4 h-4 fill-current" /> {mockDriver.rating}
+                      </div>
                     </div>
                   </div>
+                  <p className="text-sm text-gray-600">{mockDriver.vehicle}</p>
+                  <div className="flex gap-2">
+                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-xl">
+                      <Phone className="w-4 h-4 mr-2" /> Call
+                    </Button>
+                    <Button variant="outline" className="flex-1 rounded-xl">
+                      <MessageCircle className="w-4 h-4 mr-2" /> Message
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-                  <div className="space-y-2">
+              <Card className="border-0 shadow-lg rounded-xl">
+                <CardHeader>
+                  <CardTitle>Live Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
                     <div>
-                      <span className="font-medium text-green-800">Pickup Address:</span>
-                      <p className="text-sm text-green-700">{pickupAddress}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-green-800">Hospital:</span>
-                      <p className="text-sm text-green-700">{hospitalAddress}</p>
+                      <p className="font-medium">Booking Confirmed</p>
+                      <p className="text-sm text-gray-500">{selectedTimeSlot}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-3 text-sm text-gray-600">
-                  <h4 className="font-medium text-gray-900">What happens next?</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Our team will call you within 30 minutes to confirm
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Car className="w-4 h-4 text-blue-500" />
-                      Healthcare companion will arrive 15 minutes before scheduled time
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-purple-500" />
-                      Live tracking available during service
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MessageCircle className="w-4 h-4 text-orange-500" />
-                      Regular updates sent to family members
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Companion Assigned</p>
+                      <p className="text-sm text-gray-500">{mockDriver.name}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-xl"
-                    onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
-                  >
-                    Back to Dashboard
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setStep('select');
-                      setSelectedService('');
-                    }}
-                    className="flex-1 rounded-xl"
-                  >
-                    Book Another
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex items-center gap-3">
+                    <Car className="w-5 h-5 text-blue-500 animate-pulse" />
+                    <div>
+                      <p className="font-medium">On The Way</p>
+                      <p className="text-sm text-gray-500">ETA: {mockDriver.eta}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 opacity-50">
+                    <MapPin className="w-5 h-5" />
+                    <p className="font-medium">Arrived at Pickup</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

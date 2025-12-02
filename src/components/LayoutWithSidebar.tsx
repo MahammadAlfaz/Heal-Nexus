@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { AdminSidebar } from './AdminSidebar';
+import { BreadcrumbNavigation } from './BreadcrumbNavigation';
 
 interface LayoutWithSidebarProps {
   children: ReactNode;
@@ -37,8 +38,11 @@ export function LayoutWithSidebar({
           onLogout={onLogout}
         />
       )}
-      <main className="flex-1 p-8">
-        {children}
+      <main className="flex-1">
+        <BreadcrumbNavigation userType={userType} activeSection={activeSection} onNavigate={onNavigate} />
+        <div className="p-8">
+          {children}
+        </div>
       </main>
     </div>
   );

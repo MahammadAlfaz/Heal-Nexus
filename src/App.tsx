@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Routes, Route } from 'react-router-dom';
 import { LandingPage } from './components/LandingPage';
@@ -14,7 +14,6 @@ import { MedicineScanner } from './components/MedicineScanner';
 import { HealthAssistant } from './components/HealthAssistant';
 import { HomeServices } from './components/HomeServices';
 import { HospitalFinder } from './components/HospitalFinder';
-import { AppointmentBooking } from './components/AppointmentBooking';
 import { CommunitySupport } from './components/CommunitySupport';
 import { CostEstimator } from './components/CostEstimator';
 import { PickupService } from './components/PickupService';
@@ -23,6 +22,7 @@ import { MedicineVerification } from './components/MedicineVerification';
 import { ReportAnalysis } from './components/ReportAnalysis';
 import { AppointmentManagement } from './components/AppointmentManagement';
 import { PatientMonitoring } from './components/PatientMonitoring';
+import { PatientAppointmentBooking } from './components/PatientAppointmentBooking';
 
 import { TelehealthConsultation } from './components/TelehealthConsultation';
 import { HospitalDetails } from './components/HospitalDetails';
@@ -35,7 +35,7 @@ type Page = 'landing' | 'login' | 'signup' | 'patient-dashboard' | 'doctor-dashb
            'appointment-booking' | 'community-support' | 'cost-estimator' | 'pickup-service' |
            'emergency-response' | 'medicine-verification' | 'report-analysis' | 'appointment-management' |
            'patient-monitoring' | 'telehealth-consultation' | 'hospital-details';
-type UserType = 'patient' | 'doctor' | 'admin' | null;
+type UserType = 'patient' | 'doctor' | null;
 
 const pageToPath: Record<Page, string> = {
   'landing': '/',
@@ -66,8 +66,21 @@ const pageToPath: Record<Page, string> = {
 
 export default function App() {
   const navigateHook = useNavigate();
-  const [userType, setUserType] = useState<UserType>(null);
+  const [userType, setUserType] = useState<UserType>(() => {
+    // Load userType from localStorage on initial render
+    const saved = localStorage.getItem('userType');
+    return saved as UserType || null;
+  });
   const [selectedReport, setSelectedReport] = useState<any>(null);
+
+  // Save userType to localStorage whenever it changes
+  useEffect(() => {
+    if (userType) {
+      localStorage.setItem('userType', userType);
+    } else {
+      localStorage.removeItem('userType');
+    }
+  }, [userType]);
 
   const navigate = (page: Page | string, data?: any) => {
     const path = typeof page === 'string' && page.startsWith('/') ? page : pageToPath[page as Page];
@@ -87,13 +100,13 @@ export default function App() {
   const signUp = async (userData: any, type: UserType) => {
     try {
       // Merge userType into userData before sending
-      const payload = { ...userData, userType: type };
-      const response = await signUpUser(payload);
+      const response = await signUpUser({ ...userData, userType: type });
       console.log('User signed up successfully:', response);
-      setUserType(type);
-      if (type === 'patient') navigate('patient-dashboard');
-      else if (type === 'doctor') navigate('doctor-dashboard');
-      else if (type === 'admin') navigate('admin-dashboard');
+      
+      // After successful signup, navigate to the login page
+      // with a success message.
+      alert('Signup successful! Please log in.');
+      navigate('login');
     } catch (error: any) {
       console.error('Signup failed:', error);
       // You could show an error message to the user here
@@ -107,9 +120,40 @@ export default function App() {
   };
 
   // Direct login function for development/testing purposes
-  const directLogin = (type: UserType) => {
-    if (type === 'patient' || type === 'doctor' || type === 'admin') {
-      login(type);
+  const directLogin = async (type: UserType) => {
+    if (type === 'patient' || type === 'doctor') {
+      try {
+        // Use test credentials from DataInitializationService
+        let email: string;
+        let password: string;
+
+        if (type === 'patient') {
+          email = 'alfazkota.786@gmail.com';
+          password = 'password123';
+        } else if (type === 'doctor') {
+          email = 'doctor@healthcare.com';
+          password = 'doctor123';
+        }
+
+        const response = await fetch('http://localhost:8082/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, userType: type }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('userId', data.userId);
+          localStorage.setItem('userType', type);
+          login(type);
+          console.log(`Direct login successful as ${type}`);
+        } else {
+          console.error('Direct login failed:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Direct login error:', error);
+      }
     }
   };
 
@@ -134,7 +178,7 @@ export default function App() {
         <Route path="/health-assistant" element={<HealthAssistant onNavigate={navigate} userType={userType} />} />
         <Route path="/home-services" element={<HomeServices onNavigate={navigate} userType={userType} />} />
         <Route path="/hospital-finder" element={<HospitalFinder onNavigate={navigate} userType={userType} />} />
-        <Route path="/appointment-booking" element={<AppointmentBooking onNavigate={navigate} userType={userType} />} />
+        <Route path="/appointment-booking" element={<PatientAppointmentBooking onNavigate={navigate} userType={userType} />} />
         <Route path="/community-support" element={<CommunitySupport onNavigate={navigate} userType={userType} />} />
         <Route path="/cost-estimator" element={<CostEstimator onNavigate={navigate} userType={userType} />} />
         <Route path="/pickup-service" element={<PickupService onNavigate={navigate} userType={userType} />} />

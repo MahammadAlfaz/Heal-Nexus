@@ -1,10 +1,11 @@
 package com.healthcare.model;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Document(collection = "medical_reports")
 public class MedicalReport {
@@ -25,6 +26,8 @@ public class MedicalReport {
     private String status;
 
     private String fileUrl;
+
+    private String extractedData;
 
     private LocalDateTime createdAt;
 
@@ -62,6 +65,9 @@ public class MedicalReport {
 
     public String getFileUrl() { return fileUrl; }
     public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getExtractedData() { return extractedData; }
+    public void setExtractedData(String extractedData) { this.extractedData = extractedData; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

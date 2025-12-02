@@ -56,16 +56,7 @@ public class User {
 
     private String insurancePolicyNumber;
 
-    // Healthcare Professional Information (for doctors)
-    private String licenseNumber;
 
-    private String specialization;
-
-    private String medicalDegree;
-
-    private String yearsOfExperience;
-
-    private String hospitalAffiliation;
 
     // Preferences
     private Boolean allowEmergencyServices;
@@ -75,6 +66,8 @@ public class User {
     private Boolean allowDataSharing;
 
     private Boolean enableLocationServices;
+
+    private String photoUrl;
 
     private LocalDateTime createdAt;
 
@@ -156,20 +149,7 @@ public class User {
     public String getInsurancePolicyNumber() { return insurancePolicyNumber; }
     public void setInsurancePolicyNumber(String insurancePolicyNumber) { this.insurancePolicyNumber = insurancePolicyNumber; }
 
-    public String getLicenseNumber() { return licenseNumber; }
-    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
 
-    public String getSpecialization() { return specialization; }
-    public void setSpecialization(String specialization) { this.specialization = specialization; }
-
-    public String getMedicalDegree() { return medicalDegree; }
-    public void setMedicalDegree(String medicalDegree) { this.medicalDegree = medicalDegree; }
-
-    public String getYearsOfExperience() { return yearsOfExperience; }
-    public void setYearsOfExperience(String yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
-
-    public String getHospitalAffiliation() { return hospitalAffiliation; }
-    public void setHospitalAffiliation(String hospitalAffiliation) { this.hospitalAffiliation = hospitalAffiliation; }
 
     public Boolean getAllowEmergencyServices() { return allowEmergencyServices; }
     public void setAllowEmergencyServices(Boolean allowEmergencyServices) { this.allowEmergencyServices = allowEmergencyServices; }
@@ -182,6 +162,9 @@ public class User {
 
     public Boolean getEnableLocationServices() { return enableLocationServices; }
     public void setEnableLocationServices(Boolean enableLocationServices) { this.enableLocationServices = enableLocationServices; }
+
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

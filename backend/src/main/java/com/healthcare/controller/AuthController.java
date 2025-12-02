@@ -1,32 +1,42 @@
 package com.healthcare.controller;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.healthcare.model.Doctor;
 import com.healthcare.model.User;
 import com.healthcare.repository.UserRepository;
+import com.healthcare.service.DoctorService;
 import com.healthcare.service.JwtUtil;
 import com.healthcare.service.UserService;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3005"})
 public class AuthController {
 
     @Autowired
@@ -40,9 +50,13 @@ public class AuthController {
 
     @Autowired
     private UserService userService;
+  
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private DoctorService doctorService;
 
     // Inner class for Login Request
     public static class LoginRequest {
@@ -86,10 +100,10 @@ public class AuthController {
         private String medicalDegree;
         private String yearsOfExperience;
         private String hospitalAffiliation;
-        private boolean allowEmergencyServices;
-        private boolean allowAIAnalysis;
-        private boolean allowDataSharing;
-        private boolean enableLocationServices;
+        private Boolean allowEmergencyServices;
+        private Boolean allowAIAnalysis;
+        private Boolean allowDataSharing;
+        private Boolean enableLocationServices;
 
         // Getters and Setters
         public String getEmail() { return email; }
@@ -144,33 +158,44 @@ public class AuthController {
         public void setYearsOfExperience(String yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
         public String getHospitalAffiliation() { return hospitalAffiliation; }
         public void setHospitalAffiliation(String hospitalAffiliation) { this.hospitalAffiliation = hospitalAffiliation; }
-        public boolean isAllowEmergencyServices() { return allowEmergencyServices; }
-        public void setAllowEmergencyServices(boolean allowEmergencyServices) { this.allowEmergencyServices = allowEmergencyServices; }
-        public boolean isAllowAIAnalysis() { return allowAIAnalysis; }
-        public void setAllowAIAnalysis(boolean allowAIAnalysis) { this.allowAIAnalysis = allowAIAnalysis; }
-        public boolean isAllowDataSharing() { return allowDataSharing; }
-        public void setAllowDataSharing(boolean allowDataSharing) { this.allowDataSharing = allowDataSharing; }
-        public boolean isEnableLocationServices() { return enableLocationServices; }
-        public void setEnableLocationServices(boolean enableLocationServices) { this.enableLocationServices = enableLocationServices; }
+        public Boolean getAllowEmergencyServices() { return allowEmergencyServices; }
+        public void setAllowEmergencyServices(Boolean allowEmergencyServices) { this.allowEmergencyServices = allowEmergencyServices; }
+        public Boolean getAllowAIAnalysis() { return allowAIAnalysis; }
+        public void setAllowAIAnalysis(Boolean allowAIAnalysis) { this.allowAIAnalysis = allowAIAnalysis; }
+        public Boolean getAllowDataSharing() { return allowDataSharing; }
+        public void setAllowDataSharing(Boolean allowDataSharing) { this.allowDataSharing = allowDataSharing; }
+        public Boolean getEnableLocationServices() { return enableLocationServices; }
+        public void setEnableLocationServices(Boolean enableLocationServices) { this.enableLocationServices = enableLocationServices; }
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody LoginRequest loginRequest) throws Exception {
-        try {
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
-            );
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(401).body(Map.of("message", "Incorrect username or password"));
+        // Manual authentication to support userType
+        User user = userService.authenticateUser(loginRequest.getEmail(), loginRequest.getPassword(), loginRequest.getUserType())
+                .orElse(null);
+
+        if (user == null) {
+             return ResponseEntity.status(401).body(Map.of("message", "Incorrect username, password, or user type."));
         }
 
-        final UserDetails userDetails = userDetailsService.loadUserByUsername(loginRequest.getEmail());
-        final User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new Exception("User not found with email: " + loginRequest.getEmail()));
+        // The original check was good, but let's ensure it's consistent.
+        // The authenticateUser method already handles this, so this check is redundant but safe.
+        // final User user = userRepository.findByEmailAndUserType(loginRequest.getEmail(), loginRequest.getUserType())
+        //         .orElseThrow(() -> new Exception("User not found with email: " + loginRequest.getEmail()));
 
         if (!user.getUserType().equals(loginRequest.getUserType())) {
             return ResponseEntity.status(401).body(Map.of("message", "User found, but with a different role. Please use the correct login tab."));
         }
+
+        // Check if doctor is approved by admin
+        if ("doctor".equals(loginRequest.getUserType())) {
+            if (!doctorService.isDoctorApproved(loginRequest.getEmail())) {
+                return ResponseEntity.status(403).body(Map.of("message", "Your account is pending admin approval. Please contact the administrator."));
+            }
+        }
+
+        // We need a UserDetails object to generate the token
+        final UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail() + ":" + user.getUserType()); // Use a unique identifier
 
         final String jwt = jwtUtil.generateToken(userDetails);
 
@@ -180,13 +205,64 @@ public class AuthController {
         response.put("userType", user.getUserType());
         response.put("fullName", user.getFullName());
 
+        // If user is a doctor, include the doctor ID
+        if ("doctor".equals(user.getUserType())) {
+            Optional<Doctor> doctor = doctorService.findByEmail(user.getEmail());
+            if (doctor.isPresent()) {
+                response.put("doctorId", doctor.get().getId());
+            }
+        }
+
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@RequestBody SignupRequest signupRequest) {
+    @PostMapping(value = "/signup", consumes = {"multipart/form-data"})
+    public ResponseEntity<?> registerUser(
+            @ModelAttribute SignupRequest signupRequest,
+            @RequestParam(value = "profileImage", required = false) MultipartFile profileImage) {
         try {
             User registeredUser = userService.registerUser(signupRequest);
+
+            // If user is a doctor, save doctor data in doctor collection
+            if ("doctor".equals(signupRequest.getUserType())) {
+                Doctor doctor = new Doctor(
+                    signupRequest.getEmail(),
+                    signupRequest.getFullName(),
+                    signupRequest.getPhone(),
+                    signupRequest.getLicenseNumber(),
+                    signupRequest.getSpecialization(),
+                    signupRequest.getMedicalDegree(),
+                    signupRequest.getYearsOfExperience(),
+                    signupRequest.getHospitalAffiliation()
+                );
+                doctor.setApproved(false);
+                doctor.setAddress(signupRequest.getAddress());
+                doctor.setCity(signupRequest.getCity());
+                doctor.setState(signupRequest.getState());
+                doctor.setZipCode(signupRequest.getZipCode());
+
+                // Save profile image locally if provided
+                if (profileImage != null && !profileImage.isEmpty()) {
+                    try {
+                        String uploadDir = "uploads/doctor-profiles/";
+                        Path uploadPath = Paths.get(uploadDir);
+                        if (!Files.exists(uploadPath)) {
+                            Files.createDirectories(uploadPath);
+                        }
+                        String fileName = registeredUser.getId() + "_" + profileImage.getOriginalFilename();
+                        Path filePath = uploadPath.resolve(fileName);
+                        Files.copy(profileImage.getInputStream(), filePath);
+                        String photoUrl = "/uploads/doctor-profiles/" + fileName;
+                        doctor.setPhotoUrl(photoUrl);
+                    } catch (IOException e) {
+                        // Log the error but continue without photoUrl
+                        System.err.println("Failed to save profile image locally: " + e.getMessage());
+                    }
+                }
+
+                doctorService.save(doctor);
+            }
+
             Map<String, Object> response = new HashMap<>();
             response.put("id", registeredUser.getId());
             response.put("email", registeredUser.getEmail());
@@ -194,7 +270,7 @@ public class AuthController {
             response.put("fullName", registeredUser.getFullName());
             response.put("message", "User registered successfully");
             return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
@@ -203,7 +279,7 @@ public class AuthController {
     public ResponseEntity<?> getUserProfile(@PathVariable String userId) {
         return userService.findById(userId)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.ok(null));
     }
 
     @PutMapping("/profile/{userId}")

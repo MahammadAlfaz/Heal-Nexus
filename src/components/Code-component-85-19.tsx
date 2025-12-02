@@ -42,7 +42,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
       name: 'Dr. Rajesh Kumar',
       specialty: 'Cardiologist',
       qualification: 'MD, DM Cardiology',
-      experience: 15,
+      yearsOfExperience: 15,
       rating: 4.8,
       reviews: 342,
       hospital: 'Apollo Hospitals',
@@ -59,7 +59,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
       name: 'Dr. Priya Sharma',
       specialty: 'Neurologist',
       qualification: 'MD, DM Neurology',
-      experience: 12,
+      yearsOfExperience: 12,
       rating: 4.9,
       reviews: 298,
       hospital: 'Manipal Hospital',
@@ -76,7 +76,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
       name: 'Dr. Amit Patel',
       specialty: 'Orthopedist',
       qualification: 'MS Orthopedics',
-      experience: 18,
+      yearsOfExperience: 18,
       rating: 4.7,
       reviews: 451,
       hospital: 'Fortis Hospital',
@@ -375,7 +375,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                       </div>
 
                       <div className="text-sm text-gray-600">
-                        {selectedDoctor.experience} years experience
+                        {selectedDoctor.yearsOfExperience} years experience
                       </div>
                     </div>
                   </div>
@@ -478,7 +478,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                           <span className="text-gray-600">({selectedDoctor.reviews} reviews)</span>
                         </div>
                         <div className="text-gray-600">
-                          {selectedDoctor.experience} years experience
+                          {selectedDoctor.yearsOfExperience} years experience
                         </div>
                       </div>
 
@@ -677,7 +677,7 @@ export function AppointmentBooking({ onNavigate, userType }: AppointmentBookingP
                           <span className="text-sm font-medium">{doctor.rating}</span>
                           <span className="text-sm text-gray-600">({doctor.reviews})</span>
                         </div>
-                        <span className="text-sm text-gray-600">• {doctor.experience} years exp</span>
+                        <span className="text-sm text-gray-600">• {doctor.yearsOfExperience} years exp</span>
                       </div>
 
                       <div className="flex items-center justify-between">

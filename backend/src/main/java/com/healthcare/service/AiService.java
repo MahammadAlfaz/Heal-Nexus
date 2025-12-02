@@ -1,12 +1,18 @@
 package com.healthcare.service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import com.healthcare.dto.GeminiRequest;
+import com.healthcare.dto.GeminiResponse;
+
 
 import reactor.core.publisher.Mono;
 
@@ -14,6 +20,8 @@ import reactor.core.publisher.Mono;
 public class AiService {
 
     private final WebClient webClient;
+
+    private static final Logger logger = LoggerFactory.getLogger(AiService.class);
 
     @Value("${gemini.api.key}")
     private String geminiApiKey;
@@ -26,50 +34,36 @@ public class AiService {
     }
 
     public Mono<String> queryAI(String userMessage, String language) {
-        // Prepare the request body for Gemini API
-        Map<String, Object> part = new HashMap<>();
         String promptWithLanguage = "Please respond in " + language + ". " + userMessage;
-        part.put("text", promptWithLanguage);
-
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", new Map[]{part});
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", new Map[]{content});
+        GeminiRequest requestBody = new GeminiRequest(promptWithLanguage);
 
         return webClient.post()
                 .uri(geminiApiUrl)
-                .header("X-goog-api-key", geminiApiKey)
+                .header("x-goog-api-key", geminiApiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(requestBody)
                 .retrieve()
-                .bodyToMono(Map.class)
+                .bodyToMono(GeminiResponse.class)
                 .map(response -> {
-                    // Log the full response for debugging
-                    System.out.println("Gemini API response: " + response);
-
-                    // Extract the AI response from the Gemini API response
-                    try {
-                        var candidates = (java.util.List<Map<String, Object>>) response.get("candidates");
-                        if (candidates != null && !candidates.isEmpty()) {
-                            Map<String, Object> candidate = candidates.get(0);
-                            Map<String, Object> contentMap = (Map<String, Object>) candidate.get("content");
-                            if (contentMap != null) {
-                                var parts = (java.util.List<Map<String, Object>>) contentMap.get("parts");
-                                if (parts != null && !parts.isEmpty()) {
-                                    Map<String, Object> partMap = parts.get(0);
-                                    return (String) partMap.get("text");
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    return "Sorry, I couldn't process your request.";
+                    logger.debug("Gemini API response: {}", response);
+                    return Optional.ofNullable(response.getCandidates())
+                            .flatMap(candidates -> candidates.stream().findFirst())
+                            .map(GeminiResponse.Candidate::getContent)
+                            .map(GeminiResponse.Content::getParts)
+                            .flatMap(parts -> parts.stream().findFirst())
+                            .map(GeminiResponse.Part::getText)
+                            .orElse("Sorry, I couldn't process your request.");
                 })
-                .doOnError(error -> {
-                    System.err.println("Error calling Gemini API: " + error.getMessage());
-                    error.printStackTrace();
+                .onErrorResume(WebClientResponseException.class, ex -> {
+                    logger.error("Error from Gemini API. Status: {}, Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+                    if (ex.getStatusCode().value() == 429) {
+                        return Mono.just("AI service is currently rate limited. Please try again later.");
+                    }
+                    return Mono.just("Sorry, there was an error communicating with the AI service. Status: " + ex.getStatusCode());
+                })
+                .onErrorResume(Exception.class, ex -> {
+                    logger.error("An unexpected error occurred while calling Gemini API: {}", ex.getMessage());
+                    return Mono.just("Sorry, an unexpected error occurred.");
                 });
     }
 }

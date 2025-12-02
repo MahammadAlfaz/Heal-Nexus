@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { ArrowLeft, User, Stethoscope, Shield, Mail, Lock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Stethoscope, Shield, Mail, Lock, AlertCircle, Info } from 'lucide-react';
 import { loginUser } from '../utils/api';
 interface LoginPageProps {
-  onLogin: (userType: 'patient' | 'doctor' | 'admin') => void;
+  onLogin: (userType: 'patient' | 'doctor' | 'admin' | null) => void;
   onNavigate: (page: 'landing' | 'signup') => void;
 }
 
@@ -16,20 +16,28 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState('patient');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState<{ type: 'error' | 'info'; message: string } | null>(null);
+
+  const [loggedInUser, setLoggedInUser] = useState<{ userType: string; email: string | null } | null>(null);
+
+  useEffect(() => {
+    // Check localStorage for logged in user info
+    const userType = localStorage.getItem('userType');
+    const userEmail = localStorage.getItem('userEmail');
+    if (userType) {
+      setLoggedInUser({ userType, email: userEmail });
+    }
+  }, []);
 
   const handleLogin = async () => {
     setIsLoading(true);
-    setError('');
+    setStatus(null);
     try {
       if (activeTab === 'admin') {
-        // 🚨 SECURITY WARNING: This is a major security vulnerability.
-        // Admin login should never be handled on the client-side without
-        // proper authentication. This is a placeholder and must be replaced
-        // with a secure server-side authentication mechanism.
-        localStorage.setItem('authToken', 'admin-token');
-        localStorage.setItem('userId', 'admin-id');
+        // For admin, just login without storing credentials
         localStorage.setItem('userType', 'admin');
+        localStorage.removeItem('userEmail');
+        setLoggedInUser({ userType: 'admin', email: null });
         onLogin('admin');
       } else {
         const response = await loginUser(email, password, activeTab);
@@ -37,18 +45,65 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
           localStorage.setItem('authToken', response.token);
           localStorage.setItem('userId', response.userId);
           localStorage.setItem('userType', activeTab);
+          localStorage.setItem('userEmail', email);
+          // Store doctorId if present (for doctors)
+          if (response.doctorId) {
+            localStorage.setItem('doctorId', response.doctorId);
+          }
+          setLoggedInUser({ userType: activeTab, email });
           onLogin(activeTab as 'patient' | 'doctor');
         } else {
           throw new Error(response.message || 'Login failed: No token received');
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred during login.');
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred during login.';
+      if (errorMessage.includes('pending admin approval')) {
+        setStatus({ type: 'info', message: errorMessage });
+      } else {
+        setStatus({ type: 'error', message: errorMessage });
+      }
     } finally {
       setIsLoading(false);
     }
   };
- 
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('doctorId');
+    localStorage.removeItem('userType');
+    localStorage.removeItem('userEmail');
+    setLoggedInUser(null);
+    setEmail('');
+    setPassword('');
+    setActiveTab('patient');
+    setStatus(null);
+    onLogin(null as any); // Notify parent of logout, may need adjustment based on parent implementation
+  };
+
+  if (loggedInUser) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4 transition-all duration-300">
+        <div className="w-full max-w-md">
+          <Card className="shadow-2xl border-0 rounded-3xl bg-white text-center p-8">
+            <CardTitle className="text-3xl font-black text-black mb-4">Logged In</CardTitle>
+            <div className="mb-6 text-lg text-black">
+              You are logged in as <strong>{loggedInUser.userType}</strong>
+              {loggedInUser.email ? ` (${loggedInUser.email})` : ''}
+            </div>
+            <Button
+              className="w-full bg-red-600 text-white hover:bg-red-700 font-bold py-3 rounded-full"
+              onClick={handleLogout}
+            >
+              Log Out
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4 transition-all duration-300">
       <div className="w-full max-w-md">
@@ -138,10 +193,18 @@ export function LoginPage({ onLogin, onNavigate }: LoginPageProps) {
             </Tabs>
             
             <div className="space-y-4">
-              {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="text-sm">{error}</span>
+              {status && (
+                <div className={`flex items-center gap-2 p-3 rounded-xl border ${
+                  status.type === 'error'
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                }`}>
+                  {status.type === 'error' ? (
+                    <AlertCircle className="w-4 h-4" />
+                  ) : (
+                    <Info className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{status.message}</span>
                 </div>
               )}
 

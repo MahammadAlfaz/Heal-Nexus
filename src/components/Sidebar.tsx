@@ -24,7 +24,7 @@ import {
 import { useState, useEffect } from 'react';
 
 interface SidebarProps {
-  userType: 'patient' | 'doctor';
+  userType: 'patient' | 'doctor' | 'admin';
   activeSection: string;
   onSectionChange: (section: string) => void;
   onNavigate: (page: string) => void;
@@ -78,7 +78,11 @@ export function Sidebar({ userType, activeSection, onSectionChange, onNavigate, 
   const menuItems = userType === 'patient' ? patientMenuItems : doctorMenuItems;
 
   const handleMenuClick = (item: any) => {
-    if (item.type === 'page') {
+    if (item.id === 'dashboard') {
+      // Map dashboard to correct page based on userType
+      const dashboardPage = userType === 'patient' ? 'patient-dashboard' : userType === 'doctor' ? 'doctor-dashboard' : 'admin-dashboard';
+      onNavigate(dashboardPage);
+    } else if (item.type === 'page') {
       onNavigate(item.id);
     } else {
       // For upload section, navigate to upload page instead of changing section

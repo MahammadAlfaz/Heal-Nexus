@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -14,7 +14,6 @@ import {
   Plus,
   Clock,
   AlertCircle,
-  AlertTriangle,
   MessageSquare,
   TrendingUp,
   Calendar,
@@ -26,10 +25,9 @@ import {
   Edit,
   BarChart,
   Filter,
-  Scan,
-  Loader2
+  Scan
 } from 'lucide-react';
-import { fetchDoctorPatients, fetchAppointments } from '../utils/api';
+import { fetchAppointments, fetchDoctorReports, fetchProfile } from '../utils/api';
 import { LayoutWithSidebar } from './LayoutWithSidebar';
 
 interface DoctorDashboardProps {
@@ -42,10 +40,40 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [doctorNotes, setDoctorNotes] = useState('');
-  const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
+
+  // Handle profile navigation
+  React.useEffect(() => {
+    if (activeSection === 'profile') {
+      onNavigate('user-profile');
+    }
+  }, [activeSection, onNavigate]);
+
+  // Fetch doctor appointments on component mount
+  useEffect(() => {
+    const fetchDoctorAppointments = async () => {
+      try {
+        setLoading(true);
+        // Get doctor ID from localStorage or context
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        const currentDoctorId = userData.id;
+
+        if (currentDoctorId) {
+          setDoctorId(currentDoctorId);
+          const appointmentsData = await fetchAppointments(currentDoctorId, 'doctor');
+          setAppointments(appointmentsData);
+        }
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDoctorAppointments();
+  }, []);
 
   const mockPatients = [
     {
@@ -122,206 +150,249 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
     { id: 4, patient: 'Sarah Wilson', time: '03:30 PM', type: 'Routine', status: 'Confirmed' }
   ];
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // TODO: Get doctorId from user context/auth
-        const doctorId = '1'; // Placeholder
-        const [patientsData, appointmentsData] = await Promise.all([
-          fetchDoctorPatients(doctorId),
-          fetchAppointments(doctorId, 'doctor')
-        ]);
-        setPatients(patientsData);
-        setAppointments(appointmentsData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-        // Fallback to mock data for development
-        setPatients(mockPatients);
-        setAppointments(mockAppointments);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  const renderMainDashboard = () => {
-    if (isLoading) {
-      return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-6 h-6 animate-spin" />
-            <span>Loading dashboard...</span>
+  const renderMainDashboard = () => (
+    <div className="space-y-6 sm:space-y-8">
+      {/* Enhanced Welcome Section */}
+      <div className="bg-gradient-to-r from-primary/10 via-secondary/10 to-purple-50 rounded-2xl p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-24 h-24 sm:w-32 sm:h-32 bg-primary/5 rounded-full -translate-y-12 translate-x-12 sm:-translate-y-16 sm:translate-x-16"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 sm:w-24 sm:h-24 bg-secondary/5 rounded-full translate-y-8 -translate-x-8 sm:translate-y-12 sm:-translate-x-12"></div>
+        <div className="relative">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl text-gray-900 mb-2">Good morning, Dr. Williams! 👨‍⚕️</h1>
+              <p className="text-sm sm:text-base text-gray-600">You have 8 patients scheduled today and 5 reports pending review.</p>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-4">
+                <Badge className="bg-green-50 text-green-600 border-green-200 px-2 sm:px-3 py-1 text-xs sm:text-sm">
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  Licensed Physician
+                </Badge>
+                <Badge className="bg-blue-50 text-blue-600 border-blue-200 px-2 sm:px-3 py-1 text-xs sm:text-sm">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  4.9 Rating
+                </Badge>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <Button
+                onClick={() => onNavigate('emergency-response')}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm"
+              >
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Emergency Center
+              </Button>
+              <Button
+                onClick={() => onNavigate('telehealth-consultation')}
+                className="bg-secondary hover:bg-secondary/90 text-white rounded-xl text-sm"
+              >
+                <Stethoscope className="w-4 h-4 mr-2" />
+                Telehealth
+              </Button>
+              <Button
+                onClick={() => onNavigate('patient-monitoring')}
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm"
+              >
+                <Activity className="w-4 h-4 mr-2" />
+                Patient Monitoring
+              </Button>
+              <Button
+                onClick={() => onNavigate('medicine-verification')}
+                className="bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-sm"
+              >
+                <Scan className="w-4 h-4 mr-2" />
+                Medicine Verification
+              </Button>
+              <Button
+                onClick={() => onNavigate('report-analysis')}
+                className="bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm"
+              >
+                <BarChart className="w-4 h-4 mr-2" />
+                AI Analysis
+              </Button>
+              <Button
+                onClick={() => onNavigate('appointment-management')}
+                className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Appointments
+              </Button>
+            </div>
           </div>
         </div>
-      );
-    }
+      </div>
 
-    if (error) {
-      return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <p className="text-red-600">{error}</p>
-            <Button onClick={() => window.location.reload()} className="mt-4">
-              Retry
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6 sm:space-y-8">
-        {/* Welcome Section */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 lg:p-8">
-          <h1 className="text-2xl lg:text-3xl font-black text-black mb-2">Good morning, Dr. Williams!</h1>
-          <p className="text-base text-gray-600">You have {appointments.length} patients scheduled today and 5 reports pending review.</p>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <Card className="border-gray-200 shadow-sm rounded-2xl">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="flex items-center gap-3 text-base">
-                <Users className="w-5 h-5 text-gray-500" />
-                <span className="font-semibold text-black">Patients Today</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="text-3xl font-black text-black mb-1">{appointments.length}</div>
-              <p className="text-sm text-gray-500">Scheduled appointments</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 shadow-sm rounded-2xl">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="flex items-center gap-3 text-base">
-                <FileText className="w-5 h-5 text-gray-500" />
-                <span className="font-semibold text-black">Pending Reports</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="text-3xl font-black text-black mb-1">5</div>
-              <p className="text-sm text-gray-500">Need your review</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 shadow-sm rounded-2xl">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="flex items-center gap-3 text-base">
-                <Clock className="w-5 h-5 text-gray-500" />
-                <span className="font-semibold text-black">Next Appointment</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="text-3xl font-black text-black mb-1">9:00 AM</div>
-              <p className="text-sm text-gray-500">John Doe</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-200 shadow-sm rounded-2xl">
-            <CardHeader className="pb-2 sm:pb-3">
-              <CardTitle className="flex items-center gap-3 text-base">
-                <TrendingUp className="w-5 h-5 text-gray-500" />
-                <span className="font-semibold text-black">Satisfaction</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="text-3xl font-black text-black mb-1">95%</div>
-              <p className="text-sm text-gray-500">Patient rating</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Today's Appointments */}
-        <Card className="border-gray-200 shadow-sm rounded-2xl">
-          <CardHeader>
-            <CardTitle className="font-bold text-black">Today's Appointments</CardTitle>
-            <CardDescription>Your scheduled patients for today</CardDescription>
+      {/* Quick Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <Card className="border-0 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 group">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              </div>
+              <span className="text-sm sm:text-base">Patients Today</span>
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
+            <div className="text-2xl sm:text-3xl text-gray-900 mb-1">8</div>
+            <p className="text-xs sm:text-sm text-gray-600">Scheduled appointments</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 group">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-secondary/10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-secondary" />
+              </div>
+              <span className="text-sm sm:text-base">Pending Reports</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl sm:text-3xl text-gray-900 mb-1">5</div>
+            <p className="text-xs sm:text-sm text-gray-600">Need your review</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 group">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+              </div>
+              <span className="text-sm sm:text-base">Next Appointment</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-lg sm:text-xl text-gray-900 mb-1">9:00 AM</div>
+            <p className="text-xs sm:text-sm text-gray-600">John Doe - Follow-up</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-lg rounded-2xl hover:shadow-xl transition-all duration-300 group">
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
+              </div>
+              <span className="text-sm sm:text-base">Performance</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-2xl sm:text-3xl text-gray-900 mb-1">95%</div>
+            <p className="text-xs sm:text-sm text-gray-600">Patient satisfaction</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's Appointments */}
+      <Card className="border-0 shadow-lg rounded-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-primary" />
+            Today's Appointments
+          </CardTitle>
+          <CardDescription>Your scheduled patients for today</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-2 text-gray-600">Loading appointments...</span>
+            </div>
+          ) : appointments.length > 0 ? (
             <div className="space-y-4">
-              {mockAppointments.map((appointment) => (
+              {appointments.map((appointment) => (
                 <div key={appointment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors duration-200">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                      <User className="w-6 h-6 text-gray-600" />
+                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                      <Users className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-black">{appointment.patient}</h4>
-                      <p className="text-sm text-gray-600">{appointment.type} - {appointment.time}</p>
+                      <h4 className="font-medium text-gray-900">
+                        {appointment.patient ? appointment.patient.name : 'Unknown Patient'}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {appointment.appointmentDate ? new Date(appointment.appointmentDate).toLocaleTimeString() : 'Time not set'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge 
-                      className={appointment.status === 'Urgent' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}
+                    <Badge
+                      variant={appointment.status === 'Urgent' ? 'destructive' : 'default'}
+                      className="rounded-lg text-xs"
                     >
-                      {appointment.status}
+                      {appointment.status || 'Scheduled'}
                     </Badge>
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Reports Pending Review */}
-        <Card className="border-gray-200 shadow-sm rounded-2xl">
-          <CardHeader>
-            <CardTitle className="font-bold text-black">Reports Pending Review</CardTitle>
-            <CardDescription>Latest reports that need your attention</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Report Type</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {[
-                    { patient: 'John Doe', type: 'Blood Test', date: '2024-01-15', priority: 'High' },
-                    { patient: 'Jane Smith', type: 'X-Ray', date: '2024-01-14', priority: 'Medium' },
-                    { patient: 'Mike Johnson', type: 'CT Scan', date: '2024-01-13', priority: 'High' }
-                  ].map((report, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{report.patient}</TableCell>
-                      <TableCell>{report.type}</TableCell>
-                      <TableCell>{report.date}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          className={report.priority === 'High' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}
-                        >
-                          {report.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="rounded-lg border-gray-300"
-                          onClick={() => onNavigate('view-report', report)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Review
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No appointments scheduled for today.
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reports Pending Review */}
+      <Card className="border-0 shadow-lg rounded-2xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-secondary" />
+            Reports Pending Review
+          </CardTitle>
+          <CardDescription>Latest reports that need your attention</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[120px]">Patient</TableHead>
+                  <TableHead className="hidden sm:table-cell">Report Type</TableHead>
+                  <TableHead className="hidden md:table-cell">Date</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[
+                  { patient: 'John Doe', type: 'Blood Test', date: '2024-01-15', priority: 'High' },
+                  { patient: 'Jane Smith', type: 'X-Ray', date: '2024-01-14', priority: 'Medium' },
+                  { patient: 'Mike Johnson', type: 'CT Scan', date: '2024-01-13', priority: 'High' }
+                ].map((report, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{report.patient}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{report.type}</TableCell>
+                    <TableCell className="hidden md:table-cell">{report.date}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={report.priority === 'High' ? 'destructive' : 'default'}
+                        className="rounded-lg text-xs"
+                      >
+                        {report.priority}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg"
+                        onClick={() => onNavigate('view-report', report)}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Review
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
-  };
 
   const renderSearch = () => (
     <div className="space-y-6">
@@ -380,11 +451,11 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockPatients.filter(patient => 
-                  searchQuery === '' || 
+                {mockPatients.filter((patient: any) =>
+                  searchQuery === '' ||
                   patient.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   patient.patientId.toLowerCase().includes(searchQuery.toLowerCase())
-                ).map((patient) => (
+                ).map((patient: any) => (
                   <TableRow key={patient.id}>
                     <TableCell className="font-medium">{patient.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">{patient.patientId}</TableCell>
@@ -449,7 +520,7 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <select className="px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-black">
               <option>All Types</option>
               <option>Blood Test</option>
@@ -498,28 +569,27 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
               </TableHeader>
               <TableBody>
                 {[
-                  { id: 1, patient: 'John Doe', type: 'Blood Test', date: '2024-01-15', priority: 'High', status: 'Pending Review' },
-                  { id: 2, patient: 'Jane Smith', type: 'X-Ray', date: '2024-01-14', priority: 'Medium', status: 'Reviewed' },
-                  { id: 3, patient: 'Mike Johnson', type: 'CT Scan', date: '2024-01-13', priority: 'High', status: 'Requires Follow-up' },
-                  { id: 4, patient: 'Sarah Wilson', type: 'MRI', date: '2024-01-12', priority: 'Low', status: 'Pending Review' },
-                  { id: 5, patient: 'David Brown', type: 'Blood Test', date: '2024-01-11', priority: 'Medium', status: 'Reviewed' }
-                ].map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-medium">{report.patient}</TableCell>
+                  { patientName: 'John Doe', type: 'Blood Test', date: '2024-01-15', priority: 'High', status: 'Pending Review' },
+                  { patientName: 'Jane Smith', type: 'X-Ray', date: '2024-01-14', priority: 'Medium', status: 'Pending Review' },
+                  { patientName: 'Mike Johnson', type: 'CT Scan', date: '2024-01-13', priority: 'High', status: 'Requires Follow-up' },
+                  { patientName: 'Sarah Wilson', type: 'MRI', date: '2024-01-12', priority: 'Low', status: 'Reviewed' }
+                ].map((report: any, index: number) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{report.patientName}</TableCell>
                     <TableCell className="hidden sm:table-cell">{report.type}</TableCell>
                     <TableCell className="hidden md:table-cell">{report.date}</TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={report.priority === 'High' ? 'destructive' : 
+                      <Badge
+                        variant={report.priority === 'High' ? 'destructive' :
                                 report.priority === 'Medium' ? 'default' : 'secondary'}
                         className="rounded-lg text-xs"
                       >
-                        {report.priority}
+                        {report.priority || 'Medium'}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      <Badge 
-                        variant={report.status === 'Pending Review' ? 'destructive' : 
+                      <Badge
+                        variant={report.status === 'Pending Review' ? 'destructive' :
                                 report.status === 'Requires Follow-up' ? 'default' : 'secondary'}
                         className="rounded-lg text-xs"
                       >
@@ -542,7 +612,7 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
                           variant="outline"
                           className="rounded-lg border-gray-300"
                           onClick={() => {
-                            setDoctorNotes(`Review notes for ${report.patient} - ${report.type}`);
+                            setDoctorNotes(`Review notes for ${report.patientName} - ${report.type}`);
                           }}
                         >
                           <MessageSquare className="w-4 h-4 mr-1" />
@@ -655,7 +725,7 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockPatients.map((patient) => (
+                {mockPatients.map((patient: any) => (
                   <TableRow key={patient.id}>
                     <TableCell className="font-medium">{patient.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">{patient.patientId}</TableCell>
@@ -698,40 +768,35 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
   );
 
   const renderContent = () => {
-    try {
-      switch (activeSection) {
-        case 'dashboard':
-          return renderMainDashboard();
-        case 'search':
-          return renderSearch();
-        case 'reports':
-          return renderReportsSection();
-        case 'patients':
-          return renderPatientsSection();
-        case 'profile':
-          return (
-            <div className="space-y-4 sm:space-y-6">
-              <div>
-                <h1 className="text-2xl sm:text-3xl text-gray-900">Profile Settings</h1>
-                <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your professional profile and preferences</p>
-              </div>
-              <Card className="border-0 shadow-lg rounded-xl">
-                <CardHeader>
-                  <CardTitle>Professional Information</CardTitle>
-                  <CardDescription>Update your medical credentials and contact details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Profile settings would be implemented here with forms for updating doctor information, medical license details, specializations, and contact preferences.</p>
-                </CardContent>
-              </Card>
+    switch (activeSection) {
+      case 'dashboard':
+        return renderMainDashboard();
+      case 'search':
+        return renderSearch();
+      case 'reports':
+        return renderReportsSection();
+      case 'patients':
+        return renderPatientsSection();
+      case 'profile':
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            <div>
+              <h1 className="text-2xl sm:text-3xl text-gray-900">Profile Settings</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-1">Manage your professional profile and preferences</p>
             </div>
-          );
-        default:
-          return renderMainDashboard();
-      }
-    } catch (error) {
-      console.error('Error rendering content:', error);
-      return renderMainDashboard(); // Fallback to dashboard
+            <Card className="border-0 shadow-lg rounded-xl">
+              <CardHeader>
+                <CardTitle>Professional Information</CardTitle>
+                <CardDescription>Update your medical credentials and contact details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Profile settings would be implemented here with forms for updating doctor information, medical license details, specializations, and contact preferences.</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      default:
+        return renderMainDashboard();
     }
   };
 

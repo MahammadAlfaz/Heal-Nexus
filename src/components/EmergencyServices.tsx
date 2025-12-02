@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { useAppData, Hospital } from './AppDataContext';
 import { Separator } from './ui/separator';
-import { 
+import {
   ArrowLeft, 
   AlertTriangle, 
   Phone, 
@@ -22,50 +23,77 @@ import {
 
 interface EmergencyServicesProps {
   onNavigate: (page: string) => void;
-  userType: 'patient' | 'doctor' | null;
+  userType: 'patient' | 'doctor' | 'admin' | null;
 }
 
 export function EmergencyServices({ onNavigate, userType }: EmergencyServicesProps) {
+  const { hospitals } = useAppData();
   const [emergencyActive, setEmergencyActive] = useState(false);
-  const [selectedHospital, setSelectedHospital] = useState<any>(null);
-  const [currentLocation, setCurrentLocation] = useState<any>(null);
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [ambulanceCalled, setAmbulanceCalled] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  const mockHospitals = [
-    {
-      id: 1,
-      name: 'City General Hospital',
-      distance: '1.2 km',
-      eta: '8 mins',
-      generalBeds: 12,
-      icuBeds: 3,
-      emergencyBeds: 5,
-      specialties: ['Cardiology', 'Neurology', 'Emergency'],
-      phone: '+91-80-12345678'
-    },
-    {
-      id: 2,
-      name: 'Apollo Medical Center',
-      distance: '2.1 km',
-      eta: '12 mins',
-      generalBeds: 8,
-      icuBeds: 2,
-      emergencyBeds: 7,
-      specialties: ['Cardiology', 'Orthopedics', 'Emergency'],
-      phone: '+91-80-87654321'
-    },
-    {
-      id: 3,
-      name: 'Fortis Healthcare',
-      distance: '3.5 km',
-      eta: '18 mins',
-      generalBeds: 15,
-      icuBeds: 6,
-      emergencyBeds: 4,
-      specialties: ['Neurology', 'Cancer Care', 'Emergency'],
-      phone: '+91-80-11223344'
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser');
+      return;
     }
-  ];
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setLocationError(null);
+      },
+      (error) => {
+        setLocationError('Unable to retrieve your location');
+        setUserLocation(null);
+      }
+    );
+  }, []);
+
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371; // Radius of the Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // distance in km
+  };
+
+  const formatDistance = (distance: number): string => {
+    return distance < 1 ? `${(distance * 1000).toFixed(0)} m` : `${distance.toFixed(1)} km`;
+  };
+
+  const calculateEta = (distance: number): string => {
+    // Assuming an average speed of 25 km/h in city traffic
+    const timeHours = distance / 25;
+    const timeMinutes = timeHours * 60;
+    return `${Math.round(timeMinutes)} mins`;
+  };
+
+  const hospitalsWithDistance = hospitals
+    .filter(hospital => hospital && hospital.coordinates) // Filter out hospitals without coordinates to prevent crashes
+    .map(hospital => {
+      const distanceInKm = userLocation ? calculateDistance(userLocation.lat, userLocation.lng, hospital.coordinates.lat, hospital.coordinates.lng) : -1;
+      return {
+        ...hospital,
+        distanceInKm,
+        displayDistance: distanceInKm !== -1 ? formatDistance(distanceInKm) : 'Calculating...',
+        eta: distanceInKm !== -1 ? calculateEta(distanceInKm) : 'N/A',
+      };
+    })
+    .sort((a, b) => {
+      // Push hospitals with uncalculated distances to the end of the list
+      if (a.distanceInKm === -1 && b.distanceInKm === -1) return 0;
+      if (a.distanceInKm === -1) return 1;
+      if (b.distanceInKm === -1) return -1;
+      return a.distanceInKm - b.distanceInKm;
+    });
 
   const emergencyInstructions = [
     {
@@ -112,8 +140,6 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
 
   const activateEmergency = () => {
     setEmergencyActive(true);
-    // Simulate getting current location
-    setCurrentLocation({ lat: 12.9716, lng: 77.5946 });
   };
 
   const callAmbulance = () => {
@@ -127,9 +153,20 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
     alert('Location shared with emergency contacts and selected hospital.');
   };
 
-  const navigateToHospital = (hospital: any) => {
-    setSelectedHospital(hospital);
-    alert(`Navigation started to ${hospital.name}. Estimated arrival: ${hospital.eta}`);
+  const navigateToHospital = (hospital: Hospital) => {
+    if (hospital.coordinates) {
+      const destinationStr = `${hospital.coordinates.lat},${hospital.coordinates.lng}`;
+      // This URL will open Google Maps and start navigation from the user's current location.
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationStr}&travelmode=driving`;
+      window.location.href = mapsUrl;
+    } else {
+      alert('Hospital location data is not available.');
+    }
+  };
+
+  const handleBackToDashboard = () => {
+    const dashboardPage = userType ? `${userType}-dashboard` : 'landing';
+    onNavigate(dashboardPage);
   };
 
   if (!emergencyActive) {
@@ -140,7 +177,7 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+              onClick={handleBackToDashboard}
               className="text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -369,7 +406,7 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {mockHospitals.map((hospital, index) => (
+              {hospitalsWithDistance.map((hospital, index) => (
                 <div
                   key={hospital.id}
                   className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
@@ -393,7 +430,7 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
                       <div className="flex items-center gap-6 text-sm">
                         <div className="flex items-center gap-1">
                           <Navigation className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">{hospital.distance}</span>
+                          <span className="text-gray-600">{hospital.displayDistance}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4 text-gray-400" />
@@ -429,7 +466,10 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
                       <Button
                         size="sm"
                         className="bg-primary hover:bg-primary/90 text-white rounded-lg"
-                        onClick={() => navigateToHospital(hospital)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent card's onClick from firing again
+                          navigateToHospital(hospital);
+                        }}
                       >
                         <Navigation className="w-4 h-4 mr-1" />
                         Navigate
@@ -456,7 +496,7 @@ export function EmergencyServices({ onNavigate, userType }: EmergencyServicesPro
                         Navigation active to {selectedHospital.name}
                       </p>
                       <p className="text-sm text-gray-600">
-                        ETA: {selectedHospital.eta} • Distance: {selectedHospital.distance}
+                        ETA: {selectedHospital.eta} • Distance: {selectedHospital.displayDistance}
                       </p>
                     </div>
                     <Button

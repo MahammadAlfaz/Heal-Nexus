@@ -9,6 +9,7 @@ import { Checkbox } from './ui/checkbox';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
+import type { ChangeEvent } from 'react';
 import {
   User,
   Mail,
@@ -26,7 +27,9 @@ import {
   Activity,
   Users,
   Building2,
-  BarChart3
+  BarChart3,
+  Upload,
+  X
 } from 'lucide-react';
 
 interface SignUpPageProps {
@@ -48,7 +51,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
     city: '',
     state: '',
     zipCode: '',
-    
+
     // Medical Information
     bloodType: '',
     allergies: '',
@@ -60,14 +63,16 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
     preferredHospital: '',
     insuranceProvider: '',
     insurancePolicyNumber: '',
-    
+
     // Healthcare Professional Information (for doctors)
     licenseNumber: '',
     specialization: '',
     medicalDegree: '',
     yearsOfExperience: '',
     hospitalAffiliation: '',
-    
+    profileImage: null as File | null,
+    profileImagePreview: '',
+
     // Security & Preferences
     password: '',
     confirmPassword: '',
@@ -87,21 +92,44 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
 
   const totalSteps = userType === 'patient' ? 4 : 4; // Patients: 4 steps, Doctors: 4 steps
 
-  const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({
+  const updateFormData = (field: string, value: string | boolean) => {
+    setFormData((prev: typeof formData) => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const updateNestedFormData = (parentField: string, field: string, value: any) => {
-    setFormData(prev => ({
+  const updateNestedFormData = (parentField: string, field: string, value: string | boolean) => {
+    setFormData((prev: typeof formData) => ({
       ...prev,
       [parentField]: {
-        ...prev[parentField as keyof typeof prev],
+        ...(prev[parentField as keyof typeof prev] as object),
         [field]: value
       }
     }));
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        profileImage: file,
+        profileImagePreview: URL.createObjectURL(file)
+      }));
+    }
   };
 
   const nextStep = () => {
@@ -157,6 +185,13 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
       return;
     }
 
+    // Validate profile image for doctors
+    if (userType === 'doctor' && !formData.profileImage) {
+      setError('Profile image is required for healthcare professionals');
+      setIsLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setIsLoading(false);
@@ -187,40 +222,48 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
         <p className="text-xl text-gray-500">Choose your account type to get started</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
         <Card
           className={`cursor-pointer transition-all duration-300 rounded-2xl ${
             userType === 'patient'
-              ? 'bg-black text-white shadow-2xl border-black'
-              : 'border-gray-200 hover:shadow-lg text-gray-900'
+              ? 'bg-white text-black shadow-2xl border-black'
+              : 'border-gray-300 hover:shadow-lg text-gray-700'
           }`}
           onClick={() => setUserType('patient')}
         >
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-6">
-              <User className="w-10 h-10 text-black" />
+            <div className={`mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${
+              userType === 'patient' ? 'bg-black' : 'bg-gray-100'
+            }`}>
+              <User className={`w-10 h-10 ${userType === 'patient' ? 'text-white' : 'text-black'}`} />
             </div>
-            <CardTitle className="text-2xl font-bold text-black">Patient Account</CardTitle>
-            <CardDescription className="text-lg">
+            <CardTitle className={`text-2xl font-bold ${
+              userType === 'patient' ? 'text-black' : 'text-gray-700'
+            }`}>
+              Patient Account
+            </CardTitle>
+            <CardDescription className={`text-lg ${
+              userType === 'patient' ? 'text-gray-700' : 'text-gray-500'
+            }`}>
               Access comprehensive healthcare services
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <AlertTriangle className="w-5 h-5 text-black" />
                 <span>Emergency SOS Services</span>
               </div>
               <div className="flex items-center gap-3">
-                <Bot className="w-5 h-5 text-purple-500" />
+                <Bot className="w-5 h-5 text-black" />
                 <span>AI Health Assistant</span>
               </div>
               <div className="flex items-center gap-3">
-                <Heart className="w-5 h-5 text-pink-500" />
+                <Heart className="w-5 h-5 text-black" />
                 <span>Home Healthcare Services</span>
               </div>
               <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-blue-500" />
+                <Calendar className="w-5 h-5 text-black" />
                 <span>Appointment Booking</span>
               </div>
             </div>
@@ -230,43 +273,49 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
         <Card
           className={`cursor-pointer transition-all duration-300 rounded-2xl ${
             userType === 'doctor'
-              ? 'bg-black text-white shadow-2xl border-black'
-              : 'border-gray-200 hover:shadow-lg text-gray-900'
+              ? 'bg-white text-black shadow-2xl border-black'
+              : 'border-gray-300 hover:shadow-lg text-gray-700'
           }`}
           onClick={() => setUserType('doctor')}
         >
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-6">
-              <Stethoscope className="w-10 h-10 text-black" />
+            <div className={`mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-6 ${
+              userType === 'doctor' ? 'bg-black' : 'bg-gray-100'
+            }`}>
+              <Stethoscope className={`w-10 h-10 ${userType === 'doctor' ? 'text-white' : 'text-black'}`} />
             </div>
-            <CardTitle className="text-2xl font-bold text-black">Healthcare Professional</CardTitle>
-            <CardDescription className="text-lg">
+            <CardTitle className={`text-2xl font-bold ${
+              userType === 'doctor' ? 'text-black' : 'text-gray-700'
+            }`}>
+              Healthcare Professional
+            </CardTitle>
+            <CardDescription className={`text-lg ${
+              userType === 'doctor' ? 'text-gray-700' : 'text-gray-500'
+            }`}>
               Manage patients and provide care
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-green-500" />
+                <Shield className="w-5 h-5 text-black" />
                 <span>Verified Professional Status</span>
               </div>
               <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-blue-500" />
+                <User className="w-5 h-5 text-black" />
                 <span>Patient Management System</span>
               </div>
               <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-teal-500" />
+                <Activity className="w-5 h-5 text-black" />
                 <span>Medical Report Analysis</span>
               </div>
               <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-purple-500" />
+                <Calendar className="w-5 h-5 text-black" />
                 <span>Appointment Management</span>
               </div>
             </div>
           </CardContent>
         </Card>
-
-          {/* Removed Admin Account card to disable admin sign-up */}
       </div>
     </div>
   );
@@ -632,6 +681,54 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
         <p className="text-gray-500">Verify your medical credentials</p>
       </div>
 
+      {/* Profile Image Upload */}
+      <div className="space-y-4">
+        <h3 className="text-xl mb-4 flex items-center gap-2">
+          <User className="w-5 h-5" />
+          Profile Image (Required)
+        </h3>
+        <div className="flex flex-col items-center space-y-4">
+          {formData.profileImagePreview ? (
+            <div className="relative">
+              <img
+                src={formData.profileImagePreview}
+                alt="Profile Preview"
+                className="w-32 h-32 rounded-full object-cover border-4 border-gray-200"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="absolute -top-2 -right-2 rounded-full w-8 h-8 p-0"
+                onClick={() => setFormData(prev => ({ ...prev, profileImage: null, profileImagePreview: '' }))}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="w-32 h-32 rounded-full border-4 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+              <Upload className="w-8 h-8 text-gray-400" />
+            </div>
+          )}
+          <div className="text-center">
+            <Label className="cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 text-sm font-medium relative">
+              <Input
+                id="profileImage"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="absolute opacity-0 w-0 h-0 overflow-hidden"
+              />
+              <Upload className="w-4 h-4 mr-2" />
+              {formData.profileImagePreview ? 'Change Image' : 'Upload Profile Image'}
+            </Label>
+            <p className="text-sm text-gray-500 mt-2">
+              JPG, PNG or GIF. Max size 5MB.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label htmlFor="licenseNumber">Medical License Number *</Label>
@@ -726,7 +823,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="allowEmergencyServices"
                 checked={formData.allowEmergencyServices}
-                onCheckedChange={(checked) => updateFormData('allowEmergencyServices', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('allowEmergencyServices', checked)}
               />
               <div className="grid gap-1.5 leading-none">
                 <Label htmlFor="allowEmergencyServices" className="flex items-center gap-2">
@@ -743,7 +840,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="allowAIAnalysis"
                 checked={formData.allowAIAnalysis}
-                onCheckedChange={(checked) => updateFormData('allowAIAnalysis', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('allowAIAnalysis', checked)}
               />
               <div className="grid gap-1.5 leading-none">
                 <Label htmlFor="allowAIAnalysis" className="flex items-center gap-2">
@@ -760,7 +857,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="enableLocationServices"
                 checked={formData.enableLocationServices}
-                onCheckedChange={(checked) => updateFormData('enableLocationServices', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('enableLocationServices', checked)}
               />
               <div className="grid gap-1.5 leading-none">
                 <Label htmlFor="enableLocationServices" className="flex items-center gap-2">
@@ -777,7 +874,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="allowDataSharing"
                 checked={formData.allowDataSharing}
-                onCheckedChange={(checked) => updateFormData('allowDataSharing', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('allowDataSharing', checked)}
               />
               <div className="grid gap-1.5 leading-none">
                 <Label htmlFor="allowDataSharing" className="flex items-center gap-2">
@@ -800,7 +897,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="emailNotifications"
                 checked={formData.notificationPreferences.email}
-                onCheckedChange={(checked) => updateNestedFormData('notificationPreferences', 'email', checked)}
+                onCheckedChange={(checked: boolean) => updateNestedFormData('notificationPreferences', 'email', checked)}
               />
               <Label htmlFor="emailNotifications">Email Notifications</Label>
             </div>
@@ -808,7 +905,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="smsNotifications"
                 checked={formData.notificationPreferences.sms}
-                onCheckedChange={(checked) => updateNestedFormData('notificationPreferences', 'sms', checked)}
+                onCheckedChange={(checked: boolean) => updateNestedFormData('notificationPreferences', 'sms', checked)}
               />
               <Label htmlFor="smsNotifications">SMS Notifications</Label>
             </div>
@@ -816,7 +913,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="pushNotifications"
                 checked={formData.notificationPreferences.push}
-                onCheckedChange={(checked) => updateNestedFormData('notificationPreferences', 'push', checked)}
+                onCheckedChange={(checked: boolean) => updateNestedFormData('notificationPreferences', 'push', checked)}
               />
               <Label htmlFor="pushNotifications">Push Notifications</Label>
             </div>
@@ -824,7 +921,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="emergencyNotifications"
                 checked={formData.notificationPreferences.emergency}
-                onCheckedChange={(checked) => updateNestedFormData('notificationPreferences', 'emergency', checked)}
+                onCheckedChange={(checked: boolean) => updateNestedFormData('notificationPreferences', 'emergency', checked)}
               />
               <Label htmlFor="emergencyNotifications">Emergency Alerts</Label>
             </div>
@@ -839,7 +936,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="agreeToTerms"
                 checked={formData.agreeToTerms}
-                onCheckedChange={(checked) => updateFormData('agreeToTerms', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('agreeToTerms', checked)}
                 required
               />
               <Label htmlFor="agreeToTerms" className="text-sm font-medium">
@@ -850,7 +947,7 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               <Checkbox
                 id="agreeToPrivacy"
                 checked={formData.agreeToPrivacy}
-                onCheckedChange={(checked) => updateFormData('agreeToPrivacy', checked)}
+                onCheckedChange={(checked: boolean) => updateFormData('agreeToPrivacy', checked)}
                 required
               />
               <Label htmlFor="agreeToPrivacy" className="text-sm font-medium">
@@ -880,9 +977,9 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 flex-shrink-0">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -904,49 +1001,77 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {Array.from({ length: totalSteps }, (_, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div 
-                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                      currentStep > i + 1 
-                        ? 'bg-gray-600 text-white' 
-                        : currentStep === i + 1 
-                        ? 'bg-black text-white' 
-                        : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {currentStep > i + 1 ? <CheckCircle className="w-4 h-4" /> : i + 1}
-                  </div>
-                  {i < totalSteps - 1 && (
-                    <div className={`w-12 h-1 ${currentStep > i + 1 ? 'bg-gray-600' : 'bg-gray-200'}`} />
-                  )}
-                </div>
-              ))}
-            </div>
-            <Badge variant="outline" className="px-3 py-1">
+      <div className="bg-white border-b border-gray-100 flex-shrink-0">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {currentStep === 1 && 'Choose Account Type'}
+              {currentStep === 2 && 'Personal Information'}
+              {currentStep === 3 && (userType === 'doctor' ? 'Professional Information' : 'Medical Information')}
+              {currentStep === 4 && 'Security & Preferences'}
+            </h2>
+            <Badge variant="outline" className="px-3 py-1 bg-black text-white border-black">
               Step {currentStep} of {totalSteps}
             </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            {Array.from({ length: totalSteps }, (_, i) => (
+              <div key={i} className="flex items-center flex-1">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
+                    currentStep > i + 1
+                      ? 'bg-black text-white shadow-lg'
+                      : currentStep === i + 1
+                      ? 'bg-black text-white shadow-lg scale-110'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
+                  {currentStep > i + 1 ? <CheckCircle className="w-5 h-5" /> : i + 1}
+                </div>
+                {i < totalSteps - 1 && (
+                  <div className={`flex-1 h-2 mx-2 rounded-full transition-colors duration-300 ${
+                    currentStep > i + 1 ? 'bg-black' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <Card className="border-0 shadow-2xl rounded-3xl">
+      <div className="max-w-4xl mx-auto px-4 py-8 flex-grow overflow-auto">
+        <Card className="border-0 shadow-2xl rounded-3xl overflow-hidden">
           <CardContent className="p-8 md:p-12">
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <p className="text-red-800 font-medium">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  <p className="text-blue-800 font-medium">Creating your account...</p>
+                </div>
+              </div>
+            )}
+
             {renderStepContent()}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between mt-12">
+            <div className="flex flex-col sm:flex-row justify-between gap-4 mt-12 pt-8 border-t border-gray-100">
               <Button
                 variant="outline"
                 onClick={prevStep}
-                disabled={currentStep === 1}
-                className="rounded-xl px-6 border-gray-300"
+                disabled={currentStep === 1 || isLoading}
+                className="rounded-xl px-6 border-gray-300 hover:bg-gray-50 order-2 sm:order-1"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
@@ -955,15 +1080,26 @@ export function SignUpPage({ onNavigate, onSignUp }: SignUpPageProps) {
               {currentStep === totalSteps ? (
                 <Button
                   onClick={handleSubmit}
-                  className="bg-black hover:bg-gray-800 text-white rounded-xl px-8"
+                  disabled={isLoading}
+                  className="bg-black hover:bg-gray-800 text-white rounded-xl px-8 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
                 >
-                  Create Account
-                  <CheckCircle className="w-4 h-4 ml-2" />
+                  {isLoading ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      Create Account
+                      <CheckCircle className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               ) : (
                 <Button
                   onClick={nextStep}
-                  className="bg-black hover:bg-gray-800 text-white rounded-xl px-6"
+                  disabled={isLoading}
+                  className="bg-black hover:bg-gray-800 text-white rounded-xl px-6 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
                 >
                   Next
                   <ArrowRight className="w-4 h-4 ml-2" />

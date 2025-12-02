@@ -287,7 +287,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
                 className="text-black font-medium hover:bg-gray-100"
                 onClick={() => onNavigate('login')}
               >
-                Sign In
+                Login
               </Button>
               <Button 
                 className="bg-black hover:bg-gray-800 text-white font-bold px-6 py-2 rounded-full"
@@ -357,59 +357,59 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-20">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-8">
+            <div className="space-y-8 px-4 sm:px-0">
               <div className="inline-block">
                 <Badge className="bg-black text-white px-4 py-2 text-sm font-bold tracking-wider rounded-none">
                   COMPLETE HEALTHCARE ECOSYSTEM
                 </Badge>
               </div>
-              
+
               <div className="space-y-4">
-                <h1 className="text-6xl lg:text-8xl font-black text-black leading-none tracking-tight">
+                <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl font-black text-black leading-none tracking-tight">
                   WELCOME TO
                   <br />
                   <span className="bg-gradient-to-r from-black to-gray-600 bg-clip-text text-transparent">
-                    HEAL
+                  
                   </span>
                   <br />
                   HEAL NEXUS
                 </h1>
-                <p className="text-xl lg:text-2xl text-gray-600 font-medium max-w-lg">
-                  18 powerful features in one platform. Emergency care, AI tools, 
+                <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-600 font-medium max-w-full sm:max-w-lg">
+                  All powerful features in one platform. Emergency care, AI tools,
                   home services, and complete digital health ecosystem.
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
-                  className="bg-black hover:bg-gray-800 text-white font-bold px-8 py-4 rounded-full text-lg group"
+                <Button
+                  size="lg"
+                  className="bg-black hover:bg-gray-800 text-white font-bold px-6 py-3 rounded-full text-base sm:text-lg group"
                   onClick={() => onNavigate('signup')}
                 >
                   Start Your Journey
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
-                  className="border-black text-black hover:bg-black hover:text-white font-bold px-8 py-4 rounded-full text-lg border-2"
+                  className="border-black text-black hover:bg-black hover:text-white font-bold px-6 py-3 rounded-full text-base sm:text-lg border-2"
                   onClick={() => scrollToSection('all-features')}
                 >
-                  Explore 18 Features
+                  Explore All Features
                 </Button>
               </div>
 
-              <div className="flex flex-wrap gap-8 pt-8">
+              <div className="flex flex-wrap gap-6 pt-6 sm:pt-8">
                 {stats.map((stat, index) => (
-                  <div key={index} className="text-center">
-                    <div className="text-3xl font-black text-black">{stat.number}</div>
-                    <div className="text-sm text-gray-600 font-medium tracking-wider">{stat.label}</div>
+                  <div key={index} className="text-center min-w-[80px]">
+                    <div className="text-2xl sm:text-3xl font-black text-black">{stat.number}</div>
+                    <div className="text-xs sm:text-sm text-gray-600 font-medium tracking-wider">{stat.label}</div>
                   </div>
                 ))}
               </div>
             </div>
-            
-            <div className="relative">
+
+            <div className="relative px-4 sm:px-0">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent z-10 rounded-3xl"></div>
                 <img
@@ -418,8 +418,8 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
                   className="w-full h-auto rounded-3xl shadow-2xl"
                 />
                 <div className="absolute bottom-8 left-8 z-20 text-white">
-                  <div className="text-sm font-bold tracking-wider mb-2">18 FEATURES</div>
-                  <div className="text-2xl font-black">Complete Healthcare</div>
+                  <div className="text-xs sm:text-sm font-bold tracking-wider mb-2">All FEATURES</div>
+                  <div className="text-xl sm:text-2xl font-black">Complete Healthcare</div>
                 </div>
               </div>
             </div>
@@ -723,7 +723,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               COMPLETE ECOSYSTEM
             </Badge>
             <h2 className="text-4xl lg:text-5xl font-black text-white mb-4 tracking-tight">
-              18 POWERFUL FEATURES
+              All POWERFUL FEATURES
             </h2>
             <p className="text-lg text-gray-300 font-medium">
               Everything you need for complete healthcare
@@ -773,7 +773,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               OUR MISSION
             </h2>
             <p className="text-xl text-gray-300 font-medium max-w-2xl mx-auto">
-              Join the healthcare revolution. Get exclusive access to all 18 premium features, 
+              Join the healthcare revolution. Get exclusive access to  All premium features, 
               priority support, and cutting-edge AI tools.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">

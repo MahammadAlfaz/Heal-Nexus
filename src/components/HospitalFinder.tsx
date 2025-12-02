@@ -131,7 +131,7 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+            onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : userType === 'doctor' ? 'doctor-dashboard' : 'admin-dashboard')}
             className="text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -177,7 +177,7 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
               </div>
 
               {showFilters && (
-                <div className="grid md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">
                   <div>
                     <label className="text-sm font-medium text-gray-900 mb-2 block">
                       Specialty
@@ -216,7 +216,7 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
                     </Select>
                   </div>
 
-                  <div>
+                  <div className="sm:col-span-2 lg:col-span-1">
                     <label className="text-sm font-medium text-gray-900 mb-2 block">
                       Facilities
                     </label>
@@ -271,8 +271,8 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
 
             {filteredHospitals.map((hospital) => (
               <Card key={hospital.id} className="border-0 shadow-lg rounded-xl overflow-hidden">
-                <div className="flex">
-                  <div className="w-32 h-32 bg-gray-200">
+                <div className="flex flex-col sm:flex-row">
+                  <div className="w-full sm:w-32 h-32 sm:h-32 bg-gray-200">
                     <img
                       src={hospital.image}
                       alt={hospital.name}
@@ -280,7 +280,7 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
                     />
                   </div>
 
-                  <div className="flex-1 p-6">
+                  <div className="flex-1 p-4 sm:p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -320,7 +320,7 @@ export function HospitalFinder({ onNavigate, userType }: HospitalFinderProps) {
                         </div>
                       </div>
 
-                      <div className="text-right space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:space-y-0 space-y-2">
                         <Button
                           size="sm"
                           onClick={() => getDirections(hospital.address)}

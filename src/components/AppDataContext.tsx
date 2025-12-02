@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { approveDoctor, rejectDoctor, fetchDoctors } from '../utils/api';
 
 // Types for our data structures
 export interface Hospital {
@@ -24,16 +25,21 @@ export interface Hospital {
 
 export interface Doctor {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   phone: string;
   specialization: string;
   licenseNumber: string;
+  medicalDegree: string;
   hospitalAffiliation: string;
-  experience: number;
+  yearsOfExperience: string;
   rating: number;
+  reviewCount: number;
+  consultationFee: number;
+  onlineConsultation: boolean;
+  nextAvailable: string;
   verified: boolean;
-  profileImage?: string;
+  photoUrl?: string;
   status: 'pending' | 'approved' | 'rejected';
   verificationDate?: string;
 }
@@ -83,9 +89,10 @@ interface AppDataContextType {
 
   // Doctors
   doctors: Doctor[];
+  loadDoctors: () => Promise<void>;
   addDoctor: (doctor: Omit<Doctor, 'id'>) => void;
   updateDoctor: (id: string, doctor: Partial<Doctor>) => void;
-  verifyDoctor: (id: string, status: 'approved' | 'rejected') => void;
+  verifyDoctor: (email: string, status: 'approved' | 'rejected') => Promise<void>;
   deleteDoctor: (id: string) => void;
 
   // Patients
@@ -271,35 +278,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   ]);
 
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      email: 'sarah.johnson@citygeneral.com',
-      phone: '(555) 111-2222',
-      specialization: 'Cardiology',
-      licenseNumber: 'MD123456',
-      hospitalAffiliation: 'City General Hospital',
-      experience: 12,
-      rating: 4.8,
-      verified: true,
-      status: 'approved',
-      verificationDate: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Chen',
-      email: 'michael.chen@stmarys.com',
-      phone: '(555) 333-4444',
-      specialization: 'Neurology',
-      licenseNumber: 'MD789012',
-      hospitalAffiliation: 'St. Mary\'s Medical Center',
-      experience: 8,
-      rating: 4.6,
-      verified: false,
-      status: 'pending'
-    }
-  ]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   const [patients, setPatients] = useState<Patient[]>([
     {
@@ -391,6 +370,35 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   // Doctor management functions
+  const loadDoctors = async () => {
+    try {
+      const backendDoctors = await fetchDoctors();
+      const mappedDoctors: Doctor[] = backendDoctors.map((backendDoc: any) => ({
+        id: backendDoc.id,
+        fullName: backendDoc.fullName,
+        email: backendDoc.email,
+        phone: backendDoc.phone,
+        specialization: backendDoc.specialization,
+        licenseNumber: backendDoc.licenseNumber,
+        medicalDegree: backendDoc.medicalDegree,
+        hospitalAffiliation: backendDoc.hospitalAffiliation,
+        yearsOfExperience: backendDoc.yearsOfExperience,
+        rating: backendDoc.rating || 0,
+        reviewCount: backendDoc.reviewCount || 0,
+        consultationFee: backendDoc.consultationFee || 0,
+        onlineConsultation: backendDoc.onlineConsultation || false,
+        nextAvailable: backendDoc.nextAvailable || '',
+        verified: backendDoc.approved || false,
+        photoUrl: backendDoc.photoUrl,
+        status: (backendDoc.approved ? 'approved' : 'pending') as 'pending' | 'approved',
+        verificationDate: backendDoc.approved ? new Date().toISOString() : undefined,
+      }));
+      setDoctors(mappedDoctors);
+    } catch (error) {
+      console.error('Failed to load doctors:', error);
+    }
+  };
+
   const addDoctor = (doctor: Omit<Doctor, 'id'>) => {
     const newDoctor = { ...doctor, id: Date.now().toString() };
     setDoctors(prev => [...prev, newDoctor]);
@@ -400,12 +408,19 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setDoctors(prev => prev.map(d => d.id === id ? { ...d, ...doctor } : d));
   };
 
-  const verifyDoctor = (id: string, status: 'approved' | 'rejected') => {
-    setDoctors(prev => prev.map(d =>
-      d.id === id
-        ? { ...d, status, verified: status === 'approved', verificationDate: new Date().toISOString() }
-        : d
-    ));
+  const verifyDoctor = async (email: string, status: 'approved' | 'rejected') => {
+    try {
+      if (status === 'approved') {
+        await approveDoctor(email);
+      } else {
+        await rejectDoctor(email);
+      }
+      // Reload doctors from backend to get updated status
+      await loadDoctors();
+    } catch (error) {
+      console.error('Failed to verify doctor:', error);
+      throw error;
+    }
   };
 
   const deleteDoctor = (id: string) => {
@@ -445,6 +460,11 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     setMedicines(prev => prev.filter(m => m.id !== id));
   };
 
+  // Load doctors from backend on mount
+  useEffect(() => {
+    loadDoctors();
+  }, []);
+
   // Calculate system stats
   const systemStats = {
     totalUsers: patients.length + doctors.length,
@@ -462,6 +482,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     updateHospital,
     deleteHospital,
     doctors,
+    loadDoctors,
     addDoctor,
     updateDoctor,
     verifyDoctor,

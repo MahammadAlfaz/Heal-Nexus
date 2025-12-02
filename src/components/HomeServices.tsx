@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -18,19 +18,39 @@ import {
   Calendar as CalendarIcon,
   User,
   CheckCircle,
-  Truck
+  Truck,
+  Star,
+  MessageCircle
 } from 'lucide-react';
 
 interface HomeServicesProps {
   onNavigate: (page: string) => void;
-  userType: 'patient' | 'doctor' | null;
+  userType: 'patient' | 'doctor' | 'admin' | null;
 }
 
 export function HomeServices({ onNavigate, userType }: HomeServicesProps) {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
-  const [bookingStep, setBookingStep] = useState<'select' | 'book' | 'confirm'>('select');
+  const [bookingStep, setBookingStep] = useState<'select' | 'book' | 'tracking'>('select');
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [technicianLocation, setTechnicianLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (bookingStep === 'tracking') {
+      navigator.geolocation.getCurrentPosition(position => {
+        const uLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(uLocation);
+        setTechnicianLocation({
+          lat: uLocation.lat + 0.02,
+          lng: uLocation.lng + 0.02,
+        });
+      });
+    }
+  }, [bookingStep]);
 
   const services = [
     {
@@ -102,104 +122,147 @@ export function HomeServices({ onNavigate, userType }: HomeServicesProps) {
     '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM'
   ];
 
+  const mockTechnician = {
+    name: 'Anil Kumar',
+    phone: '+91 98765 43210',
+    vehicle: 'Honda Activa - KA 02 XY 5678',
+    eta: '12 mins',
+    rating: 4.9,
+    image: 'https://images.unsplash.com/photo-1557862921-37829c790f19?w=100&h=100&fit=crop&crop=face'
+  };
+
   const handleServiceSelect = (serviceId: string) => {
     setSelectedService(serviceId);
     setBookingStep('book');
   };
 
   const handleBooking = () => {
-    setBookingStep('confirm');
+    setBookingStep('tracking');
   };
 
-  const confirmBooking = () => {
-    alert('Booking confirmed! You will receive a call from our team to confirm the appointment.');
-    setBookingStep('select');
-    setSelectedService(null);
-  };
-
-  if (bookingStep === 'confirm') {
+  if (bookingStep === 'tracking') {
+    // --- DEBUGGING ---
+    // After booking a home service, open your browser's developer console (F12) 
+    // to see these logs. This will help diagnose the environment variable issue.
+    console.log("Vite Environment Variables:", import.meta.env);
+    console.log("Google Maps API Key Loaded:", import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+    // --- END DEBUGGING ---
     const service = services.find(s => s.id === selectedService);
+    const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY; // Read from environment
+    const mapSrc = userLocation && technicianLocation
+      ? `https://www.google.com/maps/embed/v1/directions?key=${googleMapsApiKey}&origin=${technicianLocation.lat},${technicianLocation.lng}&destination=${userLocation.lat},${userLocation.lng}&mode=driving`
+      : '';
+
     return (
       <div className="min-h-screen bg-gray-50 p-4">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div className="text-center space-y-6 mt-12">
-            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle className="w-12 h-12 text-white" />
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl text-gray-900">Booking Confirmed & Technician En Route</h1>
+            <p className="text-gray-600">Your {service?.name} is on its way.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <Card className="border-0 shadow-lg rounded-xl h-full">
+                <CardContent className="p-2 h-full">
+                  {!googleMapsApiKey ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg p-4">
+                      <div className="text-center p-8 bg-white rounded-lg shadow-inner max-w-md">
+                        <h2 className="text-xl font-bold text-red-600 mb-2">Map Configuration Needed</h2>
+                        <p className="text-gray-700">To display the tracking map, you need to provide a Google Maps API key in your environment file.</p>
+                        <p className="text-sm text-gray-500 mt-4">Create a <code className="bg-gray-200 p-1 rounded text-xs">.env.local</code> file in the project root and add <code className="bg-gray-200 p-1 rounded text-xs">VITE_GOOGLE_MAPS_API_KEY="YOUR_KEY"</code>.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      className="w-full h-full rounded-lg"
+                      style={{ border: 0, minHeight: '400px' }}
+                      loading="lazy"
+                      allowFullScreen
+                      src={mapSrc}
+                    ></iframe>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-            
-            <Card className="border-0 shadow-lg rounded-xl">
-              <CardHeader>
-                <CardTitle className="text-2xl text-green-700">Booking Confirmed!</CardTitle>
-                <CardDescription>Your home service has been successfully booked</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-green-50 p-4 rounded-xl space-y-2">
-                  <h3 className="font-medium text-green-800">{service?.name}</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-green-700">
+
+            <div className="space-y-6">
+              <Card className="border-0 shadow-lg rounded-xl">
+                <CardHeader>
+                  <CardTitle>Technician Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <img src={mockTechnician.image} alt={mockTechnician.name} className="w-16 h-16 rounded-full object-cover" />
                     <div>
-                      <span className="font-medium">Date:</span> {selectedDate?.toDateString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">Time:</span> {selectedTimeSlot}
-                    </div>
-                    <div>
-                      <span className="font-medium">Duration:</span> {service?.duration}
-                    </div>
-                    <div>
-                      <span className="font-medium">Cost:</span> {service?.price}
+                      <h3 className="font-medium">{mockTechnician.name}</h3>
+                      <div className="flex items-center gap-1 text-sm text-yellow-500">
+                        <Star className="w-4 h-4 fill-current" /> {mockTechnician.rating}
+                      </div>
                     </div>
                   </div>
-                </div>
+                  <p className="text-sm text-gray-600">{mockTechnician.vehicle}</p>
+                  <div className="flex gap-2">
+                    <Button className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-xl">
+                      <Phone className="w-4 h-4 mr-2" /> Call
+                    </Button>
+                    <Button variant="outline" className="flex-1 rounded-xl">
+                      <MessageCircle className="w-4 h-4 mr-2" /> Message
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-                <div className="space-y-3 text-sm text-gray-600">
-                  <h4 className="font-medium text-gray-900">What happens next?</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                      Our team will call you within 30 minutes to confirm
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-blue-500" />
-                      Technician will arrive at your scheduled time
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <TestTube className="w-4 h-4 text-purple-500" />
-                      Service completed and samples collected
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-orange-500" />
-                      Reports available in app within 24 hours
+              <Card className="border-0 shadow-lg rounded-xl">
+                <CardHeader>
+                  <CardTitle>Live Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Booking Confirmed</p>
+                      <p className="text-sm text-gray-500">{selectedTimeSlot}</p>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    className="flex-1 bg-primary hover:bg-primary/90 text-white rounded-xl"
-                    onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
-                  >
-                    Back to Dashboard
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBookingStep('select');
-                      setSelectedService(null);
-                    }}
-                    className="flex-1 rounded-xl"
-                  >
-                    Book Another Service
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Technician Assigned</p>
+                      <p className="text-sm text-gray-500">{mockTechnician.name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Truck className="w-5 h-5 text-blue-500 animate-pulse" />
+                    <div>
+                      <p className="font-medium">Technician En Route</p>
+                      <p className="text-sm text-gray-500">ETA: {mockTechnician.eta}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 opacity-50">
+                    <Home className="w-5 h-5" />
+                    <p className="font-medium">Arrived</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  if (bookingStep === 'book' && selectedService) {
+  if (bookingStep === 'book' && selectedService) { // This is the booking form
     const service = services.find(s => s.id === selectedService);
     
     return (
@@ -400,7 +463,7 @@ export function HomeServices({ onNavigate, userType }: HomeServicesProps) {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+            onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : userType === 'doctor' ? 'doctor-dashboard' : 'admin-dashboard')}
             className="text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

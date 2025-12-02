@@ -6,18 +6,32 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Progress } from './ui/progress';
-import { 
-  Upload, 
-  FileText, 
-  X, 
+import { BreadcrumbNavigation } from './BreadcrumbNavigation';
+import { uploadMedicalReport } from '../utils/api';
+import {
+  Upload,
+  FileText,
+  X,
   ArrowLeft,
   CloudUpload,
-  Check
+  Check,
+  AlertCircle
 } from 'lucide-react';
 
 interface ReportUploadProps {
-  onNavigate: (page: 'patient-dashboard' | 'doctor-dashboard') => void;
+  onNavigate: (page: string) => void;
   userType: 'patient' | 'doctor' | 'admin' | null;
+}
+
+interface ExtractedData {
+  testResults: Array<{
+    testName: string;
+    value: string;
+    unit: string;
+    referenceRange: string;
+    status: 'normal' | 'high' | 'low';
+  }>;
+  summary: string;
 }
 
 export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
@@ -29,6 +43,8 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
   const [reportType, setReportType] = useState('');
   const [description, setDescription] = useState('');
   const [reportDate, setReportDate] = useState('');
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -45,7 +61,7 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setSelectedFile(e.dataTransfer.files[0]);
     }
@@ -69,19 +85,47 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
 
     setIsUploading(true);
     setUploadProgress(0);
+    setError(null);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setIsComplete(true);
-          return 100;
+    try {
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      // Call the actual upload API
+      const response = await uploadMedicalReport(selectedFile, reportType, reportDate, description);
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      // Parse extracted data from response
+      if (response && response.extractedData) {
+        try {
+          const parsedData = JSON.parse(response.extractedData);
+          setExtractedData(parsedData);
+        } catch (e) {
+          console.error("Failed to parse extracted data", e);
+          setExtractedData({ summary: "Could not parse analysis from the server.", testResults: [] });
         }
-        return prev + 10;
-      });
-    }, 200);
+      }
+
+      setTimeout(() => {
+        setIsUploading(false);
+        setIsComplete(true);
+      }, 500);
+
+    } catch (err) {
+      setIsUploading(false);
+      setUploadProgress(0);
+      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -107,31 +151,95 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
 
   if (isComplete) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-0 shadow-2xl rounded-2xl">
-          <CardContent className="p-8 text-center space-y-6">
-            <div className="w-20 h-20 bg-secondary/20 rounded-full flex items-center justify-center mx-auto">
-              <Check className="w-10 h-10 text-secondary" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl text-gray-900">Upload Successful!</h2>
-              <p className="text-gray-600">Your medical report has been uploaded successfully.</p>
-            </div>
-            <Button 
-              className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl"
-              onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : 'doctor-dashboard')}
+      <div className="min-h-screen bg-gray-50">
+        <BreadcrumbNavigation userType={userType} onNavigate={onNavigate} />
+        <div className="p-4">
+          <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : userType === 'doctor' ? 'doctor-dashboard' : 'admin-dashboard')}
+              className="text-gray-600 hover:text-gray-900"
             >
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Dashboard
             </Button>
-          </CardContent>
-        </Card>
+            </div>
+
+            <Card className="border-0 shadow-2xl rounded-2xl">
+              <CardContent className="p-8 text-center space-y-6">
+                <div className="w-20 h-20 bg-secondary/20 rounded-full flex items-center justify-center mx-auto">
+                  <Check className="w-10 h-10 text-secondary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl text-gray-900">Upload Successful!</h2>
+                  <p className="text-gray-600">Your medical report has been uploaded and processed successfully.</p>
+                </div>
+
+                {extractedData && (
+                  <div className="text-left bg-gray-50 p-6 rounded-xl space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Extracted Test Results</h3>
+
+                    {extractedData.summary && (
+                      <div className="bg-white p-4 rounded-lg">
+                        <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
+                        <p className="text-gray-700">{extractedData.summary}</p>
+                      </div>
+                    )}
+
+                    {extractedData.testResults && extractedData.testResults.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-gray-900">Test Results</h4>
+                        {extractedData.testResults.map((test, index) => (
+                          <div key={index} className="bg-white p-4 rounded-lg border">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h5 className="font-medium text-gray-900">{test.testName}</h5>
+                                <p className="text-sm text-gray-600">
+                                  Value: {test.value} {test.unit}
+                                </p>
+                                {test.referenceRange && (
+                                  <p className="text-sm text-gray-600">
+                                    Reference: {test.referenceRange}
+                                  </p>
+                                )}
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                test.status === 'normal'
+                                  ? 'bg-green-100 text-green-800'
+                                  : test.status === 'high'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {test.status.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-white rounded-xl"
+                  onClick={() => onNavigate(userType === 'patient' ? 'patient-dashboard' : userType === 'doctor' ? 'doctor-dashboard' : 'admin-dashboard')}
+                >
+                  Back to Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      <BreadcrumbNavigation userType={userType} onNavigate={onNavigate} />
+      <div className="p-4">
+        <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button
@@ -148,6 +256,13 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
           <h1 className="text-3xl text-gray-900">Upload Medical Report</h1>
           <p className="text-gray-600">Upload and manage your medical documents securely</p>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-8">
           {/* File Upload Section */}
@@ -166,8 +281,8 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
               <div
                 className={`
                   border-2 border-dashed rounded-xl p-8 text-center transition-colors
-                  ${dragActive 
-                    ? 'border-primary bg-primary/5' 
+                  ${dragActive
+                    ? 'border-primary bg-primary/5'
                     : 'border-gray-300 hover:border-gray-400'
                   }
                 `}
@@ -221,7 +336,7 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.jpg,.jpeg,.png,.dcm"
+        accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileSelect}
               />
 
@@ -301,6 +416,7 @@ export function ReportUpload({ onNavigate, userType }: ReportUploadProps) {
               </Button>
             </CardContent>
           </Card>
+        </div>
         </div>
       </div>
     </div>

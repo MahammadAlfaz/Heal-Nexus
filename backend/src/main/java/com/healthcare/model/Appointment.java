@@ -15,7 +15,7 @@ public class Appointment {
     private User patient;
 
     @DBRef
-    private User doctor;
+    private Doctor doctor;
 
     private LocalDateTime appointmentDate;
 
@@ -28,7 +28,7 @@ public class Appointment {
     // Constructors
     public Appointment() {}
 
-    public Appointment(User patient, User doctor, LocalDateTime appointmentDate, String status, String notes) {
+    public Appointment(User patient, Doctor doctor, LocalDateTime appointmentDate, String status, String notes) {
         this.patient = patient;
         this.doctor = doctor;
         this.appointmentDate = appointmentDate;
@@ -44,8 +44,8 @@ public class Appointment {
     public User getPatient() { return patient; }
     public void setPatient(User patient) { this.patient = patient; }
 
-    public User getDoctor() { return doctor; }
-    public void setDoctor(User doctor) { this.doctor = doctor; }
+    public Doctor getDoctor() { return doctor; }
+    public void setDoctor(Doctor doctor) { this.doctor = doctor; }
 
     public LocalDateTime getAppointmentDate() { return appointmentDate; }
     public void setAppointmentDate(LocalDateTime appointmentDate) { this.appointmentDate = appointmentDate; }

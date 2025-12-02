@@ -83,7 +83,7 @@ export function HospitalManagement({ onNavigate }: HospitalManagementProps) {
   const filteredHospitals = hospitals.filter(hospital =>
     hospital.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     hospital.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hospital.specialties.some(specialty => specialty.toLowerCase().includes(searchTerm.toLowerCase()))
+    (hospital.specialties || []).some((specialty: string) => specialty.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAddHospital = async () => {
@@ -227,14 +227,14 @@ export function HospitalManagement({ onNavigate }: HospitalManagementProps) {
           <span className="text-sm text-gray-600">{hospital.rating} rating</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {hospital.specialties.slice(0, 3).map((specialty, index) => (
+          {(hospital.specialties || []).slice(0, 3).map((specialty, index) => (
             <Badge key={index} variant="secondary" className="text-xs">
               {specialty}
             </Badge>
           ))}
-          {hospital.specialties.length > 3 && (
+          {(hospital.specialties || []).length > 3 && (
             <Badge variant="secondary" className="text-xs">
-              +{hospital.specialties.length - 3} more
+              +{(hospital.specialties || []).length - 3} more
             </Badge>
           )}
         </div>
@@ -242,11 +242,11 @@ export function HospitalManagement({ onNavigate }: HospitalManagementProps) {
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <Users className="w-4 h-4" />
-              <span>{hospital.facilities.length} facilities</span>
+              <span>{(hospital.facilities || []).length} facilities</span>
             </div>
             <div className="flex items-center gap-1">
               <Stethoscope className="w-4 h-4" />
-              <span>{hospital.specialties.length} specialties</span>
+              <span>{(hospital.specialties || []).length} specialties</span>
             </div>
           </div>
           <Button
