@@ -8,6 +8,7 @@ import { HospitalManagement } from './HospitalManagement';
 import { DoctorVerification } from './DoctorVerification';
 import { UserManagement } from './UserManagement';
 import { MedicineDatabase } from './MedicineDatabase';
+import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { LayoutWithSidebar } from './LayoutWithSidebar';
 import {
   Users,
@@ -275,21 +276,7 @@ export function AdminDashboard({ onNavigate, onLogout }: AdminDashboardProps) {
       case 'medicine-database':
         return <MedicineDatabase onNavigate={onNavigate} />;
       case 'analytics':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-2xl text-gray-900">System Analytics</h2>
-            <p className="text-gray-600">Platform usage statistics and insights</p>
-            <Card className="border-0 shadow-lg rounded-xl">
-              <CardHeader>
-                <CardTitle>Analytics Dashboard</CardTitle>
-                <CardDescription>Detailed platform insights coming soon</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">Analytics features will be implemented here, including user activity, system performance, and usage statistics.</p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+        return <AnalyticsDashboard />;
       case 'emergency-coordination':
         return (
           <div className="space-y-6">
