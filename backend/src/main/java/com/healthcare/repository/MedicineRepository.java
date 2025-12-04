@@ -1,14 +1,13 @@
 package com.healthcare.repository;
 
 import com.healthcare.model.Medicine;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface MedicineRepository extends JpaRepository<Medicine, UUID> {
+public interface MedicineRepository extends MongoRepository<Medicine, String> {
     Optional<Medicine> findByBrandNameAndManufacturer(String brandName, String manufacturer);
 }
 
