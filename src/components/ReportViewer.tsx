@@ -127,6 +127,11 @@ export function ReportViewer({ report, onNavigate, userType }: ReportViewerProps
 
   useEffect(() => {
     if (report?.extractedData) {
+      // Ensure extractedData is a string before trying to parse.
+      if (typeof report.extractedData !== 'string') {
+        setExtractedData(report.extractedData); // Assume it's already an object
+        return;
+      }
       try {
         const parsed = JSON.parse(report.extractedData);
         setExtractedData(parsed);

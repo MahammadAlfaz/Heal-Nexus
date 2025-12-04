@@ -49,7 +49,7 @@ export function DoctorDashboard({ onNavigate, onLogout }: DoctorDashboardProps) 
     if (activeSection === 'profile') {
       onNavigate('user-profile');
     }
-  }, [activeSection, onNavigate]);
+  }, [activeSection]);
 
   // Fetch doctor appointments on component mount
   useEffect(() => {

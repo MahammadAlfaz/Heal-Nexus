@@ -27,8 +27,8 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
   const allUsers = [...patients.map(p => ({...p, type: 'patient'})), ...doctors.map(d => ({...d, type: 'doctor'}))];
 
   const filteredUsers = allUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
     return user.type === activeTab && matchesSearch;
@@ -72,8 +72,8 @@ export function UserManagement({ onNavigate }: UserManagementProps) {
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
-              <TabsTrigger value="patients">Patients ({patients.length})</TabsTrigger>
-              <TabsTrigger value="doctors">Doctors ({doctors.length})</TabsTrigger>
+              <TabsTrigger value="patient">Patients ({patients.length})</TabsTrigger>
+              <TabsTrigger value="doctor">Doctors ({doctors.length})</TabsTrigger>
               <TabsTrigger value="all">All ({allUsers.length})</TabsTrigger>
             </TabsList>
             <div className="overflow-x-auto">
